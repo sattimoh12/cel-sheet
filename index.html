@@ -205,6 +205,13 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .txt{font-family:"Newsreader",Georgia,serif;font-size:16px;line-height:1.42;color:var(--ink);
   overflow-wrap:anywhere;margin:0}
 .txt.quote{font-style:italic}
+.lnk{
+  color:var(--accent);text-decoration:underline;text-underline-offset:2px;
+  text-decoration-thickness:1px;overflow-wrap:anywhere;font-style:normal;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.86em;
+}
+.lnk:hover{text-decoration-thickness:2px}
+.lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .card img{display:block;width:100%;max-height:340px;object-fit:cover;background:var(--line-soft);margin-bottom:8px}
 .picker{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .pick{
@@ -538,6 +545,28 @@ function esc(s){
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 function cnote(m){ var el=$("cnote"); if (el) el.textContent = m||""; }
+
+// Turn pasted URLs into real links. The pattern only ever yields http/https,
+// so nothing can smuggle a javascript: href through here.
+var URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+[^\s<>"'(),.;:!?]/gi;
+function shortUrl(raw){
+  var r = raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "");
+  return r.length > 44 ? r.slice(0, 42) + "…" : r;
+}
+function linkify(text){
+  var s = String(text == null ? "" : text), out = "", last = 0, m;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(s)) !== null) {
+    out += esc(s.slice(last, m.index));
+    var raw = m[0];
+    var href = /^www\./i.test(raw) ? "https://" + raw : raw;
+    out += '<a class="lnk" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' +
+           esc(shortUrl(raw)) + '</a>';
+    last = m.index + raw.length;
+  }
+  out += esc(s.slice(last));
+  return out;
+}
 function now(){ return Date.now(); }
 function liveCards(){
   return Object.keys(B.cards)
@@ -1027,7 +1056,7 @@ function cardHTML(c, scenes){
         '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
         '<button class="btn ghost xs" data-act="del" aria-label="Remove card">×</button>' +
       '</div>' + media(c) +
-      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+linkify(c.text)+'</p>' : "") +
       '<div class="picker">' + CATS.map(function(k){
         return '<button class="pick" data-act="cat" data-cat="'+k.id+'" aria-pressed="'+(cat===k.id)+'" '+
                'style="'+(cat===k.id?"color:"+catColor(k.id):"")+'">'+esc(k.label)+'</button>';
@@ -1181,7 +1210,7 @@ function renderDeck(live){
         '<span class="count">'+(V.deckIdx+1)+' / '+order.length+'</span></div>' +
       '<div class="bar"><i style="width:'+Math.round(marked/order.length*100)+'%"></i></div>' +
       media(c) +
-      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+linkify(c.text)+'</p>' : "") +
       '<div class="verdicts">' +
         '<button class="btn v-in" data-v="in" aria-pressed="'+(mine==="in")+'">In</button>' +
         '<button class="btn v-maybe" data-v="maybe" aria-pressed="'+(mine==="maybe")+'">Maybe</button>' +
@@ -1237,7 +1266,7 @@ function renderLock(live){
         (sn ? '<span class="by">'+esc(sn)+'</span>' : '') +
         '<span class="pair">'+badge(ME||"you", r.a.mine)+badge(theirName, r.a.theirs)+'</span></div>' +
       media(c) +
-      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+linkify(c.text)+'</p>' : "") +
       (showDecide
         ? '<div class="decide"><button class="btn sm d-canon" data-d="canon" aria-pressed="'+(r.d==="canon")+'">Canon</button>' +
           '<button class="btn sm d-cut" data-d="cut" aria-pressed="'+(r.d==="cut")+'">Cut</button></div>'

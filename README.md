@@ -19,7 +19,7 @@ own project rather than mixing into the one you're looking at.
    **Unfiled**; each card has a dropdown to move it later, and scenes reorder with ↑ ↓.
    Each drop is also sorted on arrival into Dialogue / Character / Setting / Visual / Sound /
    Beat / Reference, or No category. The guess is marked as a guess; every card carries all eight
-   chips, so correcting it is one tap.
+   chips, so correcting it is one tap. A pasted URL becomes a live link on the card (and usually files itself under Reference).
 2. **Sealed pass** — each person goes through the reel alone, scene by scene, and marks
    In / Maybe / Out. Marks live only on that phone until you seal them, so neither person
    anchors the other.
