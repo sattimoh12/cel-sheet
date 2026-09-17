@@ -54,7 +54,10 @@ of the share link (`#m=…`) and in localStorage — a URL fragment is never sen
 key reaches the other phone without passing through Google, GitHub, or whatever app carried the
 message. A stored board document is exactly `{v, iv, e, at}`: no titles, no dialogue, no names.
 Photos are encrypted the same way in a `photos` subcollection, because a Firestore document caps
-at 1 MiB.
+at 1 MiB. They arrive independently of the board, so a photo that lands before its card is held and
+applied as soon as the card appears; until then the card shows a "photo still coming" placeholder
+rather than a blank. Photos do not fit in a share link — with sync on they come over sync, and
+without it you have to send a file.
 
 The room id (20 characters, the document address) and the key travel together in that one link, so
 **treat a share link as the whole board** — anyone who gets it can read and write that project.

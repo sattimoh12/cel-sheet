@@ -218,6 +218,12 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .lnk:hover{text-decoration-thickness:2px}
 .lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .card img{display:block;width:100%;max-height:340px;object-fit:cover;background:var(--line-soft);margin-bottom:8px}
+.pending-img{
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  min-height:76px;margin-bottom:8px;padding:12px;border:1px dashed var(--line);border-radius:6px;
+  background:var(--panel);color:var(--ink-3);
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;line-height:1.5;
+}
 .picker{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .pick{
   border:1px solid var(--line);background:transparent;color:var(--ink-2);
@@ -975,8 +981,12 @@ async function doShareLink(){
     catch(e){ V.sheet = "link"; V.pending = url; }
   }
   if (ex.stripped) {
-    V.flash = { kind:"warn", msg: (shared?"Sent. ":"") + ex.stripped + " photo" + (ex.stripped>1?"s":"") +
-      " couldn't ride along in a link — send a file too if they need the images." };
+    var n = ex.stripped + " photo" + (ex.stripped > 1 ? "s" : "");
+    V.flash = (B.room && B.skey)
+      ? { kind:"ok", msg: (shared ? "Sent. " : "") + n + " won't fit in a link, but live sync " +
+            "carries " + (ex.stripped > 1 ? "them" : "it") + " once their phone is paired." }
+      : { kind:"warn", msg: (shared ? "Sent. " : "") + n + " couldn't ride along in a link — " +
+            "send a file too if they need the images." };
   }
   render();
 }
@@ -1078,7 +1088,8 @@ async function openStr(doc, secret){
    so one `merge()` serves both paths. Photos ride in a subcollection because a
    Firestore document caps at 1 MiB. */
 var Cloud = { db:null, room:null, unsub:null, unsubPhotos:null,
-              pushT:null, lastZ:null, status:"off", remotePhotos:{}, err:"" };
+              pushT:null, lastZ:null, status:"off", remotePhotos:{},
+              photoDocs:{}, applying:false, err:"" };
 
 function cloudConfigured(){ return !!FB; }
 
@@ -1146,7 +1157,7 @@ function cloudStop(){
   if (Cloud.unsub) { Cloud.unsub(); Cloud.unsub = null; }
   if (Cloud.unsubPhotos) { Cloud.unsubPhotos(); Cloud.unsubPhotos = null; }
   clearTimeout(Cloud.pushT);
-  Cloud.room = null; Cloud.lastZ = null; Cloud.remotePhotos = {};
+  Cloud.room = null; Cloud.lastZ = null; Cloud.remotePhotos = {}; Cloud.photoDocs = {};
   setCloudStatus("off");
 }
 
@@ -1168,6 +1179,7 @@ function cloudStart(){
         return decode(z).then(function(inc){
           try { merge(inc); } catch(e){}             // saveBoard + render happen inside
           setCloudStatus("live");
+          applyPhotos();                             // cards may have just arrived
           cloudPush();                               // push back only if we're richer
         });
       }, function(){
@@ -1176,21 +1188,16 @@ function cloudStart(){
     }, function(e){ setCloudStatus("error", (e && e.code) || "offline"); });
 
     Cloud.unsubPhotos = roomRef().collection("photos").onSnapshot(function(s){
-      var changed = false;
       s.docChanges().forEach(function(ch){
         var id = ch.doc.id;
-        if (ch.type === "removed") { delete Cloud.remotePhotos[id]; return; }
+        if (ch.type === "removed") {
+          delete Cloud.remotePhotos[id]; delete Cloud.photoDocs[id]; return;
+        }
         Cloud.remotePhotos[id] = 1;
         var d = ch.doc.data();
-        if (d && d.e && B.cards[id] && !B.cards[id].img && !B.cards[id].deleted) {
-          openStr(d, B.skey).then(function(img){
-            if (B.cards[id] && !B.cards[id].img) {
-              B.cards[id].img = img; lsSet(boardKey(B.id), B); render();
-            }
-          }, function(){});
-        }
+        if (d && d.e) Cloud.photoDocs[id] = d;      // hold it even if the card isn't here yet
       });
-      if (changed) { lsSet(boardKey(B.id), B); render(); }
+      applyPhotos();
       cloudPushPhotos();
     }, function(){});
 
@@ -1198,6 +1205,30 @@ function cloudStart(){
   }, function(e){
     setCloudStatus("error", e && e.message ? e.message : "no connection");
   });
+}
+
+function applyPhotos(){
+  if (!B.skey || Cloud.applying) return;
+  var want = Object.keys(Cloud.photoDocs).filter(function(id){
+    var c = B.cards[id];
+    return c && !c.deleted && !c.img;
+  });
+  if (!want.length) return;
+  Cloud.applying = true;
+  Promise.all(want.map(function(id){
+    return openStr(Cloud.photoDocs[id], B.skey).then(function(img){
+      return { id:id, img:img };
+    }, function(){ return null; });
+  })).then(function(res){
+    Cloud.applying = false;
+    var changed = false;
+    res.forEach(function(r){
+      if (!r) return;
+      var c = B.cards[r.id];
+      if (c && !c.deleted && !c.img) { c.img = r.img; changed = true; }
+    });
+    if (changed) { lsSet(boardKey(B.id), B); render(); }
+  }, function(){ Cloud.applying = false; });
 }
 
 function cloudSchedule(){
@@ -1491,7 +1522,15 @@ function renderSync(){
 }
 
 function media(c){
-  return c.img ? '<img src="'+esc(c.img)+'" alt="dropped image" loading="lazy">' : "";
+  if (c.img) return '<img src="'+esc(c.img)+'" alt="dropped image" loading="lazy">';
+  // a photo card whose image hasn't landed yet: say so rather than show a blank
+  if (c.kind === "photo") {
+    return '<div class="pending-img">' +
+      (B.room ? "photo still coming from the other phone…"
+              : "photo lives on the phone this was dropped on — merge a file, not a link") +
+      '</div>';
+  }
+  return "";
 }
 
 function cardHTML(c, scenes){
