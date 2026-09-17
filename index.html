@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#E9EBE7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cel Sheet">
+<meta name="description" content="A two-phone board for an anime feature: dump everything, sort it on arrival, then two sealed evaluation passes.">
+<title>Cel Sheet</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9EBE7;
+  --panel:#FFFFFF;
+  --panel-2:#F2F4F1;
+  --line:#D2D6D1;
+  --line-soft:#E2E5E1;
+  --ink:#171B1A;
+  --ink-2:#4A524F;
+  --ink-3:#77807C;
+  --accent:#B2402A;
+  --accent-ink:#FFFFFF;
+  --good:#2F7D5B;
+  --warn:#9A6B12;
+  --c-dialogue:#C64F3A;
+  --c-character:#C08A1E;
+  --c-setting:#2F7D5B;
+  --c-visual:#3A63B8;
+  --c-sound:#7245A0;
+  --c-beat:#A93862;
+  --c-reference:#4E6B7E;
+  --c-none:#868E8B;
+  --r:10px;
+  color-scheme:light;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#121614;
+    --panel:#1B201E;
+    --panel-2:#232927;
+    --line:#333A37;
+    --line-soft:#282F2C;
+    --ink:#E8EBE8;
+    --ink-2:#A8B1AD;
+    --ink-3:#7C8681;
+    --accent:#E2643F;
+    --accent-ink:#1A0E09;
+    --good:#5CB98F;
+    --warn:#D3A241;
+    --c-dialogue:#E97A62;
+    --c-character:#DCAE3E;
+    --c-setting:#54AE83;
+    --c-visual:#6E92E0;
+    --c-sound:#A87BD4;
+    --c-beat:#D5688F;
+    --c-reference:#7E9CB0;
+    --c-none:#8F9894;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#121614;
+  --panel:#1B201E;
+  --panel-2:#232927;
+  --line:#333A37;
+  --line-soft:#282F2C;
+  --ink:#E8EBE8;
+  --ink-2:#A8B1AD;
+  --ink-3:#7C8681;
+  --accent:#E2643F;
+  --accent-ink:#1A0E09;
+  --good:#5CB98F;
+  --warn:#D3A241;
+  --c-dialogue:#E97A62;
+  --c-character:#DCAE3E;
+  --c-setting:#54AE83;
+  --c-visual:#6E92E0;
+  --c-sound:#A87BD4;
+  --c-beat:#D5688F;
+  --c-reference:#7E9CB0;
+  --c-none:#8F9894;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;min-height:100%;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  font-size:15px;line-height:1.45;
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+}
+img{max-width:100%}
+[hidden]{display:none!important}
+.hide{display:none!important}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600;letter-spacing:-.01em}
+
+.wrap{max-width:720px;margin:0 auto;padding-left:16px;padding-right:16px;padding-block:0 140px}
+
+/* ---------- header ---------- */
+.top{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+  background:var(--ground);border-bottom:1px solid var(--line-soft);
+  margin-left:-16px;margin-right:-16px;padding:10px 16px 0;
+}
+.brandrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.brand{font-size:19px;font-weight:700;letter-spacing:-.02em;flex:0 0 auto}
+#filmTitle{
+  flex:1 1 120px;min-width:0;border:0;background:transparent;color:var(--ink-2);
+  font-family:inherit;font-size:13px;padding:3px 0;
+}
+#filmTitle::placeholder{color:var(--ink-3)}
+#myName{
+  flex:0 0 auto;width:92px;border:1px solid var(--line);border-radius:99px;background:var(--panel-2);
+  color:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:4px 9px;text-align:center;
+}
+#myName::placeholder{color:var(--accent)}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+#filmTitle:focus{border-radius:3px}
+.syncrow{display:flex;gap:6px;margin-top:9px;align-items:center}
+.rail{display:flex;gap:4px;margin-top:9px}
+.rail button{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;align-items:flex-start;
+  border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;
+  background:var(--panel-2);color:var(--ink-3);
+  font-family:inherit;font-size:12px;font-weight:600;padding:7px 9px 8px;cursor:pointer;text-align:left;
+}
+.rail button .n{font-family:"IBM Plex Mono",monospace;font-size:10px;opacity:.75}
+.rail button[aria-current="true"]{background:var(--panel);color:var(--ink)}
+.rail button[aria-current="true"] .n{color:var(--accent);opacity:1}
+.rail button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.phase{background:var(--panel);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r) var(--r);
+  margin-left:-16px;margin-right:-16px;padding:14px 16px 16px}
+.lede{color:var(--ink-2);font-size:13.5px;margin:0 0 12px}
+.lede b{color:var(--ink);font-weight:600}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+  font-family:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer;
+}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn[disabled]{opacity:.42;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:5px 9px;font-size:12px}
+.btn.xs{padding:4px 8px;font-size:11px;font-family:"IBM Plex Mono",monospace;letter-spacing:.03em}
+.btn.ghost{background:transparent}
+.spacer{flex:1}
+.raw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);cursor:pointer;user-select:none}
+.raw input{accent-color:var(--accent);margin:0}
+.note{font-size:11.5px;color:var(--ink-3);margin-top:6px;font-family:"IBM Plex Mono",monospace;word-break:break-word}
+
+/* ---------- composer ---------- */
+.composer{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:var(--panel);border-top:1px solid var(--line);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+  box-shadow:0 -6px 20px rgba(0,0,0,.07);
+}
+.composer .inner{max-width:720px;margin:0 auto}
+#drop{
+  width:100%;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);
+  color:var(--ink);font-family:"Newsreader",Georgia,serif;font-size:16px;line-height:1.4;
+  padding:9px 11px;resize:none;min-height:44px;max-height:132px;
+}
+.crow{display:flex;gap:8px;align-items:center;margin-top:8px}
+
+/* ---------- cards ---------- */
+.reel{display:flex;flex-direction:column;gap:9px}
+.card{
+  display:grid;grid-template-columns:4px 1fr;
+  background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;
+}
+.chip{background:var(--c-none)}
+.card .body{padding:9px 11px 10px;min-width:0}
+.meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px}
+.cat{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-2)}
+.by,.count{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3)}
+.guess{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--warn);border:1px solid currentColor;border-radius:3px;padding:1px 4px}
+.txt{font-family:"Newsreader",Georgia,serif;font-size:16px;line-height:1.42;color:var(--ink);
+  overflow-wrap:anywhere;margin:0}
+.txt.quote{font-style:italic}
+.card img{display:block;width:100%;max-height:340px;object-fit:cover;background:var(--line-soft);margin-bottom:8px}
+.picker{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.pick{
+  border:1px solid var(--line);background:transparent;color:var(--ink-2);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:4px 7px;border-radius:99px;cursor:pointer;
+}
+.pick[aria-pressed="true"]{color:var(--ink);border-color:currentColor;font-weight:500}
+.pick:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---------- legend ---------- */
+.legend{border:1px solid var(--line-soft);border-radius:8px;overflow:hidden}
+.lg{display:grid;grid-template-columns:4px 92px 1fr;border-bottom:1px solid var(--line-soft)}
+.lg:last-child{border-bottom:none}
+.lg .nm{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  padding:8px 0 8px 10px;color:var(--ink);align-self:center}
+.lg .ex{padding:8px 10px 8px 4px;font-size:12.5px;color:var(--ink-3);align-self:center}
+
+/* ---------- deck ---------- */
+.deck{border:1px solid var(--line);border-radius:var(--r);background:var(--panel-2);padding:14px}
+.bar{height:3px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin:8px 0 14px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.deck .txt{font-size:19px;line-height:1.35}
+.deck img{border-radius:6px;max-height:300px}
+.verdicts{display:flex;gap:7px;margin-top:14px}
+.verdicts .btn{flex:1;padding:12px 6px;font-size:13px}
+.v-in[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#fff}
+.v-out[aria-pressed="true"]{background:var(--ink-2);border-color:var(--ink-2);color:var(--panel)}
+.v-maybe[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff}
+.navrow{display:flex;gap:7px;margin-top:9px;align-items:center;flex-wrap:wrap}
+.sealed{border:1px dashed var(--line);border-radius:var(--r);padding:16px;text-align:center;
+  color:var(--ink-2);font-size:13.5px;background:var(--panel-2)}
+
+/* ---------- lock ---------- */
+.stack{margin-top:16px}
+.stackhead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.stackhead h3{font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.stackhead .count{margin-left:auto}
+.pair{display:flex;gap:5px;margin-left:auto;flex-shrink:0}
+.mini{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
+  border:1px solid var(--line);border-radius:4px;padding:2px 5px;color:var(--ink-3);white-space:nowrap}
+.mini.in{color:var(--good);border-color:currentColor}
+.mini.maybe{color:var(--warn);border-color:currentColor}
+.decide{display:flex;gap:6px;margin-top:9px}
+.decide .btn{flex:1}
+.d-canon[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#fff}
+.d-cut[aria-pressed="true"]{background:var(--ink-2);border-color:var(--ink-2);color:var(--panel)}
+.card.is-cut{opacity:.5}
+pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:12px;
+  overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.6;
+  color:var(--ink);white-space:pre-wrap;margin:10px 0 0}
+
+/* ---------- sheets / boxes ---------- */
+.sheet{border:1px solid var(--line);border-radius:var(--r);background:var(--panel-2);padding:13px;margin-top:9px}
+.sheet h3{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+.sheet .row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.sheet textarea{
+  width:100%;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:11px;padding:8px;min-height:62px;resize:vertical;
+}
+.warnbox{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:6px;padding:10px 12px;
+  font-size:13px;color:var(--ink-2);background:var(--panel-2);margin-bottom:12px}
+.warnbox b{color:var(--ink)}
+.okbox{border:1px solid var(--line);border-left:3px solid var(--good);border-radius:6px;padding:10px 12px;
+  font-size:13px;color:var(--ink-2);background:var(--panel-2);margin-bottom:12px}
+.okbox b{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brandrow">
+      <span class="brand">Cel Sheet</span>
+      <input id="filmTitle" placeholder="untitled feature" maxlength="70" autocomplete="off">
+      <input id="myName" placeholder="your name" maxlength="14" autocomplete="off" aria-label="Your name on this phone">
+    </div>
+    <div class="syncrow">
+      <button class="btn xs" id="shareBtn">Share ↗</button>
+      <button class="btn xs" id="mergeBtn">Merge ↙</button>
+      <span class="spacer"></span>
+      <span class="count" id="tally">0 cards</span>
+    </div>
+    <div class="rail" role="tablist">
+      <button id="tab1" role="tab" aria-current="true"><span class="n">01</span>Dump</button>
+      <button id="tab2" role="tab" aria-current="false"><span class="n">02</span>Sealed pass</button>
+      <button id="tab3" role="tab" aria-current="false"><span class="n">03</span>Lock</button>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div id="sync"></div>
+
+    <section id="p1">
+      <p class="lede">Everything either of you throws in lands here and gets sorted on arrival. <b>Don't evaluate yet.</b> Quantity now, judgment in 02.</p>
+      <div id="reel" class="reel"></div>
+      <div id="empty">
+        <div class="legend" id="legend"></div>
+        <p class="note">Nothing in the reel yet. Type below, or add a photo.</p>
+      </div>
+    </section>
+
+    <section id="p2" class="hide">
+      <p class="lede">Go through the reel alone and mark each card. <b>Your marks never leave this phone</b> until you seal them — so neither of you anchors the other.</p>
+      <div id="deckHost"></div>
+    </section>
+
+    <section id="p3" class="hide">
+      <p class="lede">Both sealed passes side by side. <b>Start with the splits</b> — where you disagree is the only part worth talking about.</p>
+      <div id="lockHost"></div>
+    </section>
+  </div>
+</div>
+
+<div class="composer" id="composer">
+  <div class="inner">
+    <textarea id="drop" rows="1" placeholder="a line of dialogue, a location, a look, a beat…"></textarea>
+    <div class="crow">
+      <button class="btn primary" id="send">Drop in</button>
+      <button class="btn" id="pickPhoto">Photo</button>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <span class="spacer"></span>
+      <label class="raw" for="rawtoggle" title="Skip sorting — file it under No category"><input type="checkbox" id="rawtoggle"> raw</label>
+    </div>
+    <div class="note" id="cnote"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= categories ================= */
+var CATS = [
+  {id:"dialogue",  label:"Dialogue",  ex:"a spoken line, a voice, a silence"},
+  {id:"character", label:"Character", ex:"who someone is, how they're drawn"},
+  {id:"setting",   label:"Setting",   ex:"a place, a time, weather, a room"},
+  {id:"visual",    label:"Visual",    ex:"a shot, a palette, a layout, a cut"},
+  {id:"sound",     label:"Sound",     ex:"score, ambience, a sound cue"},
+  {id:"beat",      label:"Beat",      ex:"plot, structure, what happens"},
+  {id:"reference", label:"Reference", ex:"a film, a page, something borrowed"},
+  {id:"none",      label:"No category", ex:"leave it unsorted"}
+];
+var CATMAP={}; CATS.forEach(function(c){CATMAP[c.id]=c;});
+function catColor(id){ return "var(--c-"+(CATMAP[id]?id:"none")+")"; }
+function catLabel(id){ return CATMAP[id]?CATMAP[id].label:"No category"; }
+
+/* ================= on-device classifier ================= */
+var RULES = [
+  ["dialogue",  3, /["“”„«].{2,}["“”„»]|^\s*[-–—]\s*\S|\b(says?|said|asks?|whispers?|shouts?|mutters?|replies|answers)\b|\bvoice ?over\b|\bv\.o\.\b/i],
+  ["sound",     2, /\b(score|music|theme|ost|soundtrack|sound|sfx|silence|ambien\w*|noise|hum|drone|cue|bpm|piano|strings|drums|guitar|synth|foley|mix)\b/i],
+  ["setting",   2, /\b(int\.|ext\.|room|street|city|station|apartment|flat|rooftop|forest|school|kitchen|alley|bridge|market|desert|sea|harbou?r|rain|snow|fog|dusk|dawn|midnight|winter|summer|autumn|spring|berlin|neukölln|damascus|tokyo)\b/i],
+  ["visual",    2, /\b(shot|frame|framing|cut|palette|colou?rs?|lens|wide|close[- ]?up|pan|tilt|dolly|light(ing)?|shadow|silhouette|grain|contrast|composition|layout|storyboard|animat\w+|keyframe|cel|linework|background art|bg art)\b/i],
+  ["character", 2, /\b(wears?|wearing|hair|eyes|face|scar|hands|costume|design of|years old|protagonist|antagonist|brother|sister|mother|father|uncle|aunt|kid|girl|boy|man|woman|he is|she is|they are)\b/i],
+  ["beat",      2, /\b(then|after that|before|scene where|act (one|two|three|i|ii|iii)|opening|ending|climax|midpoint|reveal|flashback|montage|they meet|dies|leaves|returns|realis\w+|realiz\w+|turning point)\b/i],
+  ["reference", 3, /\b(like in|reference|ref:|cf\.|homage|miyazaki|satoshi kon|shinkai|oshii|yuasa|ghibli|akira|evangelion|paprika|belladonna)\b|https?:\/\/|\(\d{4}\)/i]
+];
+function guessCategory(text){
+  var t = String(text||"");
+  if (!t.trim()) return "none";
+  var best="none", score=0;
+  RULES.forEach(function(r){
+    var m = t.match(r[2]);
+    if (!m) return;
+    var s = r[1] + (t.match(new RegExp(r[2].source,"gi"))||[]).length;
+    if (s > score) { score = s; best = r[0]; }
+  });
+  return score >= 3 ? best : "none";
+}
+
+/* ================= storage ================= */
+var K_BOARD="cel:board", K_ME="cel:me", K_MYV="cel:myv";
+function lsGet(k, fb){
+  try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; }
+  catch(e){ return fb; }
+}
+function lsSet(k, v){
+  try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+  catch(e){
+    cnote(e && e.name === "QuotaExceededError"
+      ? "This phone's storage is full. Remove a few photo cards, or share and merge to a fresh board."
+      : "Couldn't save on this phone.");
+    return false;
+  }
+}
+function rid(n){
+  var a="abcdefghijklmnopqrstuvwxyz0123456789", s="";
+  var b = new Uint8Array(n||12);
+  (window.crypto||window.msCrypto).getRandomValues(b);
+  for (var i=0;i<b.length;i++) s += a[b[i] % a.length];
+  return s;
+}
+function freshBoard(){
+  return { v:1, id:rid(10), title:{val:"",ts:0}, phase:{val:1,ts:0}, cards:{}, passes:{}, dec:{} };
+}
+
+var B  = lsGet(K_BOARD, null) || freshBoard();
+var ME = lsGet(K_ME, "") || "";
+var MYV= lsGet(K_MYV, {}) || {};
+if (!B.cards) B.cards = {};
+if (!B.passes) B.passes = {};
+if (!B.dec) B.dec = {};
+
+function saveBoard(){ lsSet(K_BOARD, B); render(); }
+function saveMyv(){ lsSet(K_MYV, MYV); }
+
+window.addEventListener("storage", function(e){
+  if (e.key === K_BOARD) { B = lsGet(K_BOARD, B); render(); }
+});
+
+/* ================= view state ================= */
+var V = { deckIdx:0, sheet:null, pending:null, flash:null };
+
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function cnote(m){ var el=$("cnote"); if (el) el.textContent = m||""; }
+function now(){ return Date.now(); }
+function liveCards(){
+  return Object.keys(B.cards)
+    .map(function(k){ var c=B.cards[k]; c.id=k; return c; })
+    .filter(function(c){ return !c.deleted; })
+    .sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+}
+function myPass(){ return ME && B.passes[ME] ? B.passes[ME] : null; }
+function otherPasses(){
+  return Object.keys(B.passes).filter(function(k){ return k !== ME; });
+}
+
+/* ================= intake ================= */
+function addCard(body){
+  var id = rid(10);
+  body.author = ME || "unnamed";
+  body.createdAt = now();
+  body.edited = now();
+  B.cards[id] = body;
+  saveBoard();
+}
+function submitText(){
+  var ta=$("drop"), text=ta.value.trim();
+  if (!text) return;
+  var raw=$("rawtoggle").checked;
+  ta.value=""; ta.style.height="auto";
+  var cat = raw ? "none" : guessCategory(text);
+  addCard({ kind:"text", text:text, category:cat, guess: (!raw && cat!=="none") });
+  cnote("");
+}
+function submitPhoto(f){
+  cnote("Shrinking " + f.name + "…");
+  downscale(f).then(function(dataUrl){
+    cnote("");
+    addCard({ kind:"photo", text:"", img:dataUrl, category:"none", guess:false });
+  }, function(){ cnote("Couldn't read " + f.name + "."); });
+}
+function downscale(file){
+  return new Promise(function(res, rej){
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function(){
+      var max = 1000;
+      var s = Math.min(1, max / Math.max(img.width, img.height));
+      var cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.width * s));
+      cv.height = Math.max(1, Math.round(img.height * s));
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      var q = 0.7, out = cv.toDataURL("image/jpeg", q);
+      while (out.length > 230000 && q > 0.34) { q -= 0.09; out = cv.toDataURL("image/jpeg", q); }
+      res(out);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(); };
+    img.src = url;
+  });
+}
+function setCategory(id, cat){
+  var c = B.cards[id]; if (!c) return;
+  c.category = cat; c.guess = false; c.edited = now();
+  saveBoard();
+}
+function deleteCard(id){
+  var c = B.cards[id]; if (!c) return;
+  B.cards[id] = { deleted:true, edited:now(), createdAt:c.createdAt||0 };
+  delete MYV[id]; saveMyv();
+  saveBoard();
+}
+
+/* ================= sealed pass ================= */
+function setVerdict(cardId, v){
+  if (myPass()) return;
+  if (MYV[cardId] === v) delete MYV[cardId]; else MYV[cardId] = v;
+  saveMyv(); render();
+}
+function seal(){
+  if (!ME) { cnote("Put your name in the header first — the pass is filed under it."); return; }
+  var copy = {}; Object.keys(MYV).forEach(function(k){ copy[k]=MYV[k]; });
+  B.passes[ME] = { v:copy, at:now() };
+  setPhase(3);
+}
+function unseal(){ delete B.passes[ME]; saveBoard(); }
+
+/* ================= lock ================= */
+function agreement(cardId){
+  var mp = myPass(), others = otherPasses();
+  var mine = mp ? mp.v[cardId] : undefined;
+  var theirs = others.length ? B.passes[others[0]].v[cardId] : undefined;
+  var g = "split";
+  if (mine === "in" && theirs === "in") g = "in";
+  else if ((mine==="out"||!mine) && (theirs==="out"||!theirs)) g = "out";
+  return { mine:mine, theirs:theirs, group:g };
+}
+function decisionOf(id, group){
+  var d = B.dec[id];
+  if (d && (d.val==="canon"||d.val==="cut")) return d.val;
+  return group === "in" ? "canon" : group === "out" ? "cut" : "open";
+}
+function decide(id, val){
+  var cur = B.dec[id] && B.dec[id].val;
+  if (cur === val) delete B.dec[id]; else B.dec[id] = { val:val, ts:now() };
+  saveBoard();
+}
+
+/* ================= share / merge ================= */
+function exportObj(withImages){
+  var cards = {}, stripped = 0;
+  Object.keys(B.cards).forEach(function(k){
+    var c = B.cards[k], o = {};
+    Object.keys(c).forEach(function(f){ if (f !== "id") o[f] = c[f]; });
+    if (!withImages && o.img) { delete o.img; o.imgGone = 1; stripped++; }
+    cards[k] = o;
+  });
+  return { obj:{ v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
+                 cards:cards, passes:B.passes, dec:B.dec }, stripped:stripped };
+}
+function b64url(bytes){
+  var s=""; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function unb64url(str){
+  var s = str.replace(/-/g,"+").replace(/_/g,"/");
+  while (s.length % 4) s += "=";
+  var bin = atob(s), out = new Uint8Array(bin.length);
+  for (var i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function encode(obj){
+  var bytes = new TextEncoder().encode(JSON.stringify(obj));
+  if (window.CompressionStream) {
+    try {
+      var cs = new CompressionStream("gzip");
+      var w = cs.writable.getWriter(); w.write(bytes); w.close();
+      var buf = await new Response(cs.readable).arrayBuffer();
+      return "g" + b64url(new Uint8Array(buf));
+    } catch(e){}
+  }
+  return "p" + b64url(bytes);
+}
+async function decode(code){
+  var tag = code[0], body = unb64url(code.slice(1));
+  if (tag === "g") {
+    var ds = new DecompressionStream("gzip");
+    var w = ds.writable.getWriter(); w.write(body); w.close();
+    var buf = await new Response(ds.readable).arrayBuffer();
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  if (tag === "p") return JSON.parse(new TextDecoder().decode(body));
+  throw new Error("bad");
+}
+function boardUrl(code){
+  return location.origin + location.pathname + "#m=" + code;
+}
+
+function merge(inc){
+  if (!inc || !inc.cards) throw new Error("Not a Cel Sheet board.");
+  var added=0, updated=0, passes=0, sameBoard = (inc.id === B.id);
+  Object.keys(inc.cards).forEach(function(k){
+    var o = inc.cards[k], mine = B.cards[k];
+    if (!mine) {
+      if (o.imgGone) { delete o.imgGone; }
+      B.cards[k] = o; added++;
+    } else if ((o.edited||0) > (mine.edited||0)) {
+      // a link-shared card carries no photo — keep the photo we already have
+      if (o.imgGone && mine.img) { o.img = mine.img; }
+      delete o.imgGone;
+      B.cards[k] = o; updated++;
+    }
+  });
+  Object.keys(inc.passes||{}).forEach(function(n){
+    var o = inc.passes[n], mine = B.passes[n];
+    if (n === ME) return;                       // never let a merge overwrite my own pass
+    if (!mine || (o.at||0) > (mine.at||0)) { B.passes[n] = o; passes++; }
+  });
+  Object.keys(inc.dec||{}).forEach(function(k){
+    var o = inc.dec[k], mine = B.dec[k];
+    if (!mine || (o.ts||0) > (mine.ts||0)) B.dec[k] = o;
+  });
+  if (inc.title && (inc.title.ts||0) > (B.title.ts||0)) B.title = inc.title;
+  if (inc.phase && (inc.phase.ts||0) > (B.phase.ts||0)) B.phase = inc.phase;
+  if (!sameBoard && B.id > inc.id) B.id = inc.id;   // converge on one board id
+  saveBoard();
+  return { added:added, updated:updated, passes:passes, from:inc.from||"them", sameBoard:sameBoard };
+}
+
+async function doShareLink(){
+  var ex = exportObj(false);
+  var code = await encode(ex.obj);
+  var url = boardUrl(code);
+  if (url.length > 60000) {
+    V.flash = { kind:"warn", msg:"This board is too big for a link now. Use <b>Send a file</b> instead." };
+    render(); return;
+  }
+  var txt = (B.title.val || "Cel Sheet") + " — merge this into yours";
+  var shared = false;
+  if (navigator.share) {
+    try { await navigator.share({ title:"Cel Sheet", text:txt, url:url }); shared = true; } catch(e){}
+  }
+  if (!shared) {
+    try { await navigator.clipboard.writeText(url); V.flash = { kind:"ok", msg:"Link copied. Paste it to them." }; }
+    catch(e){ V.sheet = "link"; V.pending = url; }
+  }
+  if (ex.stripped) {
+    V.flash = { kind:"warn", msg: (shared?"Sent. ":"") + ex.stripped + " photo" + (ex.stripped>1?"s":"") +
+      " couldn't ride along in a link — send a file too if they need the images." };
+  }
+  render();
+}
+async function doShareFile(){
+  var ex = exportObj(true);
+  var blob = new Blob([JSON.stringify(ex.obj)], { type:"application/json" });
+  var name = "celsheet-" + (ME||"phone") + "-" + new Date().toISOString().slice(0,10) + ".json";
+  var file = new File([blob], name, { type:"application/json" });
+  if (navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share) {
+    try { await navigator.share({ files:[file], title:"Cel Sheet" }); return; } catch(e){}
+  }
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+  V.flash = { kind:"ok", msg:"Saved as <b>"+esc(name)+"</b>. Send them that file." };
+  render();
+}
+function codeFromText(s){
+  s = String(s||"").trim();
+  var m = s.match(/#m=([A-Za-z0-9\-_]+)/);
+  if (m) return m[1];
+  if (/^[gp][A-Za-z0-9\-_]+$/.test(s)) return s;
+  return null;
+}
+async function mergeFromText(s){
+  var code = codeFromText(s);
+  if (!code) { V.flash = { kind:"warn", msg:"That doesn't look like a Cel Sheet link." }; render(); return; }
+  try { report(merge(await decode(code))); }
+  catch(e){ V.flash = { kind:"warn", msg:"Couldn't read that link — it may have been cut short in the message." }; render(); }
+}
+function mergeFromFile(f){
+  var r = new FileReader();
+  r.onload = function(){
+    try { report(merge(JSON.parse(r.result))); }
+    catch(e){ V.flash = { kind:"warn", msg:"Couldn't read that file." }; render(); }
+  };
+  r.onerror = function(){ V.flash = { kind:"warn", msg:"Couldn't open that file." }; render(); };
+  r.readAsText(f);
+}
+function report(r){
+  var bits = [];
+  if (r.added) bits.push(r.added + " new card" + (r.added>1?"s":""));
+  if (r.updated) bits.push(r.updated + " updated");
+  if (r.passes) bits.push(r.passes + " sealed pass" + (r.passes>1?"es":""));
+  V.sheet = null; V.pending = null;
+  V.flash = bits.length
+    ? { kind:"ok", msg:"Merged from <b>"+esc(r.from)+"</b>: " + bits.join(", ") + "." }
+    : { kind:"ok", msg:"Nothing new from <b>"+esc(r.from)+"</b> — you were already up to date." };
+  render();
+}
+
+/* ================= incoming link ================= */
+// Runs on load AND on every hashchange — tapping a second share link while the
+// page is already open (or pinned to the home screen) only changes the hash.
+async function incoming(){
+  var m = location.hash.match(/#m=([A-Za-z0-9\-_]+)/);
+  if (!m) return;
+  var code = m[1];
+  history.replaceState(null, "", location.pathname + location.search);
+  try {
+    var inc = await decode(code);
+    var n = Object.keys(inc.cards||{}).length;
+    V.sheet = "incoming";
+    V.pending = inc;
+    V.flash = { kind:"ok", msg:"A board from <b>"+esc(inc.from||"them")+"</b> is ready — "+n+" cards." };
+    render();
+  } catch(e){
+    V.flash = { kind:"warn", msg:"That link was cut short somewhere and can't be read." };
+    render();
+  }
+}
+window.addEventListener("hashchange", incoming);
+
+/* ================= phases ================= */
+function setPhase(n){
+  B.phase = { val:n, ts:now() };
+  V.deckIdx = 0;
+  saveBoard();
+}
+
+/* ================= render ================= */
+function render(){
+  var ph = (B.phase && B.phase.val) || 1;
+  for (var i=1;i<=3;i++){
+    $("tab"+i).setAttribute("aria-current", ph===i ? "true" : "false");
+    $("p"+i).className = ph===i ? "" : "hide";
+  }
+  $("tab2").querySelector(".n").textContent = myPass() ? "02 ✓" : "02";
+  $("composer").className = ph===1 ? "composer" : "composer hide";
+  document.querySelector(".wrap").style.paddingBottom = ph===1 ? "140px" : "40px";
+
+  var live = liveCards();
+  var names = {}; live.forEach(function(c){ if (c.author) names[c.author]=1; });
+  $("tally").textContent = live.length + " card" + (live.length===1?"":"s") +
+    (Object.keys(names).length>1 ? " · " + Object.keys(names).length + " phones" : "");
+
+  if (document.activeElement !== $("filmTitle")) $("filmTitle").value = (B.title && B.title.val) || "";
+  if (document.activeElement !== $("myName")) $("myName").value = ME;
+
+  renderSync();
+  if (ph===1) renderReel(live);
+  else if (ph===2) renderDeck(live);
+  else renderLock(live);
+}
+
+function renderSync(){
+  var host = $("sync"), h = "";
+  if (V.flash) {
+    h += '<div class="'+(V.flash.kind==="warn"?"warnbox":"okbox")+'">'+V.flash.msg+
+         ' <button class="btn xs" data-x="flash" style="margin-left:6px">ok</button></div>';
+  }
+  if (V.sheet === "incoming" && V.pending) {
+    h += '<div class="sheet"><h3>Merge this in?</h3>' +
+         '<p class="lede" style="margin:0 0 8px">Nothing is overwritten — cards you already have keep whichever version was edited last, and your own sealed pass is left alone.</p>' +
+         '<div class="row"><button class="btn primary sm" data-x="mergeGo">Merge it</button>' +
+         '<button class="btn sm" data-x="close">Not now</button></div></div>';
+  }
+  if (V.sheet === "share") {
+    h += '<div class="sheet"><h3>Share your board</h3>' +
+         '<div class="row"><button class="btn primary sm" data-x="shareLink">Send a link</button>' +
+         '<button class="btn sm" data-x="shareFile">Send a file</button>' +
+         '<button class="btn sm ghost" data-x="close">Close</button></div>' +
+         '<p class="note">A link goes straight into WhatsApp or iMessage but leaves photos behind. A file carries everything.</p></div>';
+  }
+  if (V.sheet === "merge") {
+    h += '<div class="sheet"><h3>Merge theirs in</h3>' +
+         '<div class="row"><button class="btn sm" data-x="pickFile">Open their file</button>' +
+         '<button class="btn sm ghost" data-x="close">Close</button></div>' +
+         '<textarea id="pasteBox" placeholder="…or paste the link they sent you"></textarea>' +
+         '<div class="row" style="margin-top:7px"><button class="btn primary sm" data-x="pasteGo">Merge from link</button></div></div>';
+  }
+  if (V.sheet === "link" && V.pending) {
+    h += '<div class="sheet"><h3>Copy this link to them</h3>' +
+         '<textarea readonly id="linkBox">'+esc(V.pending)+'</textarea>' +
+         '<div class="row" style="margin-top:7px"><button class="btn sm" data-x="close">Done</button></div></div>';
+  }
+  host.innerHTML = h;
+  host.onclick = function(e){
+    var b = e.target.closest("button[data-x]"); if (!b) return;
+    var x = b.getAttribute("data-x");
+    if (x==="flash") { V.flash=null; render(); }
+    else if (x==="close") { V.sheet=null; V.pending=null; render(); }
+    else if (x==="shareLink") doShareLink();
+    else if (x==="shareFile") doShareFile();
+    else if (x==="pickFile") $("mergeFile").click();
+    else if (x==="pasteGo") mergeFromText($("pasteBox").value);
+    else if (x==="mergeGo") { try { report(merge(V.pending)); } catch(err){ V.flash={kind:"warn",msg:"Couldn't merge that."}; render(); } }
+  };
+  if (V.sheet === "link") { var lb=$("linkBox"); if (lb) { lb.focus(); lb.select(); } }
+}
+
+function media(c){
+  return c.img ? '<img src="'+esc(c.img)+'" alt="dropped image" loading="lazy">' : "";
+}
+
+function renderReel(live){
+  var host = $("reel");
+  $("empty").className = live.length ? "hide" : "";
+  host.innerHTML = live.map(function(c){
+    var cat = c.category || "none";
+    return '<article class="card" data-id="'+esc(c.id)+'">' +
+      '<div class="chip" style="background:'+catColor(cat)+'"></div><div class="body">' +
+        '<div class="meta">' +
+          '<span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
+          (c.guess ? '<span class="guess">guess</span>' : '') +
+          '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
+          '<button class="btn ghost xs" data-act="del" aria-label="Remove card">×</button>' +
+        '</div>' + media(c) +
+        (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+        '<div class="picker">' + CATS.map(function(k){
+          return '<button class="pick" data-act="cat" data-cat="'+k.id+'" aria-pressed="'+(cat===k.id)+'" '+
+                 'style="'+(cat===k.id?"color:"+catColor(k.id):"")+'">'+esc(k.label)+'</button>';
+        }).join("") + '</div>' +
+      '</div></article>';
+  }).join("");
+  host.onclick = function(e){
+    var b = e.target.closest("button[data-act]"); if (!b) return;
+    var id = b.closest(".card").getAttribute("data-id");
+    if (b.getAttribute("data-act")==="cat") setCategory(id, b.getAttribute("data-cat"));
+    else deleteCard(id);
+  };
+}
+
+function renderDeck(live){
+  var host = $("deckHost");
+  if (!live.length) { host.innerHTML = '<div class="sealed">The reel is empty. Go back to <b>01 Dump</b> first.</div>'; return; }
+  var mp = myPass();
+  if (mp) {
+    host.innerHTML = '<div class="sealed"><b>Your pass is sealed.</b><br>'+Object.keys(mp.v).length+' of '+live.length+
+      ' cards marked. Share it with them, then go to <b>03 Lock</b>.<br><br>'+
+      '<button class="btn sm" data-u="1">Unseal and keep editing</button></div>';
+    host.querySelector("button[data-u]").onclick = unseal;
+    return;
+  }
+  var order = live.slice().reverse();
+  var marked = order.filter(function(c){ return MYV[c.id]; }).length;
+  V.deckIdx = Math.max(0, Math.min(V.deckIdx, order.length-1));
+  var c = order[V.deckIdx], cat = c.category||"none", mine = MYV[c.id]||"";
+
+  host.innerHTML =
+    '<div class="deck">' +
+      '<div class="meta"><span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
+        '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
+        '<span class="count">'+(V.deckIdx+1)+' / '+order.length+'</span></div>' +
+      '<div class="bar"><i style="width:'+Math.round(marked/order.length*100)+'%"></i></div>' +
+      media(c) +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      '<div class="verdicts">' +
+        '<button class="btn v-in" data-v="in" aria-pressed="'+(mine==="in")+'">In</button>' +
+        '<button class="btn v-maybe" data-v="maybe" aria-pressed="'+(mine==="maybe")+'">Maybe</button>' +
+        '<button class="btn v-out" data-v="out" aria-pressed="'+(mine==="out")+'">Out</button>' +
+      '</div>' +
+      '<div class="navrow">' +
+        '<button class="btn sm" data-nav="-1"'+(V.deckIdx===0?" disabled":"")+'>← Back</button>' +
+        '<button class="btn sm" data-nav="1"'+(V.deckIdx===order.length-1?" disabled":"")+'>Skip →</button>' +
+        '<span class="spacer"></span><span class="count">'+marked+' marked</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="navrow" style="margin-top:14px">' +
+      '<button class="btn primary" data-seal="1"'+(marked===0?" disabled":"")+'>Seal my pass</button>' +
+      '<span class="note" style="margin:0">Sealing puts your marks into the board so they travel when you share. Undoable.</span>' +
+    '</div>';
+
+  host.querySelectorAll("button[data-v]").forEach(function(b){
+    b.onclick = function(){
+      var v = b.getAttribute("data-v");
+      setVerdict(c.id, v);
+      if (MYV[c.id]===v && V.deckIdx < order.length-1) { V.deckIdx++; render(); }
+    };
+  });
+  host.querySelectorAll("button[data-nav]").forEach(function(b){
+    b.onclick = function(){ V.deckIdx += Number(b.getAttribute("data-nav")); render(); };
+  });
+  host.querySelector("button[data-seal]").onclick = seal;
+}
+
+function renderLock(live){
+  var host = $("lockHost"), pre = "";
+  var others = otherPasses();
+  if (!myPass()) pre += '<div class="warnbox">Your pass isn\'t sealed. Finish <b>02</b> and seal it — until then you\'re seeing half the picture.</div>';
+  if (!others.length) pre += '<div class="warnbox">No pass from the other phone yet. They seal theirs, hit <b>Share</b>, and you <b>Merge</b> it in.</div>';
+  if (!live.length) { host.innerHTML = '<div class="sealed">Nothing to lock yet.</div>'; return; }
+
+  var g = { split:[], in:[], out:[] };
+  live.forEach(function(c){
+    var a = agreement(c.id), d = decisionOf(c.id, a.group);
+    (d==="open" ? g.split : d==="canon" ? g.in : g.out).push({ c:c, a:a, d:d });
+  });
+  var theirName = others.length ? others[0] : "them";
+
+  function badge(who, v){
+    var cls = v==="in" ? "in" : v==="maybe" ? "maybe" : "out";
+    return '<span class="mini '+cls+'">'+esc(who)+' '+esc(v||"—")+'</span>';
+  }
+  function row(r, showDecide){
+    var c = r.c, cat = c.category||"none";
+    return '<article class="card'+(r.d==="cut"?" is-cut":"")+'" data-id="'+esc(c.id)+'">' +
+      '<div class="chip" style="background:'+catColor(cat)+'"></div><div class="body">' +
+      '<div class="meta"><span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
+        '<span class="pair">'+badge(ME||"you", r.a.mine)+badge(theirName, r.a.theirs)+'</span></div>' +
+      media(c) +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      (showDecide
+        ? '<div class="decide"><button class="btn sm d-canon" data-d="canon" aria-pressed="'+(r.d==="canon")+'">Canon</button>' +
+          '<button class="btn sm d-cut" data-d="cut" aria-pressed="'+(r.d==="cut")+'">Cut</button></div>'
+        : '<div class="decide"><button class="btn sm" data-d="'+(r.d==="canon"?"canon":"cut")+'">Undo</button></div>') +
+      '</div></article>';
+  }
+  function stack(title, sub, rows, showDecide){
+    return '<div class="stack"><div class="stackhead"><h3>'+esc(title)+'</h3>' +
+      '<span class="count">'+rows.length+'</span></div>' +
+      (sub ? '<p class="lede" style="margin-bottom:8px">'+sub+'</p>' : "") +
+      (rows.length ? '<div class="reel">'+rows.map(function(r){ return row(r, showDecide); }).join("")+'</div>'
+                   : '<p class="note">empty</p>') + '</div>';
+  }
+
+  var canonText = g.in.length ? CATS.map(function(k){
+    var items = g.in.filter(function(r){ return (r.c.category||"none")===k.id; });
+    if (!items.length) return "";
+    return k.label.toUpperCase()+"\n"+items.map(function(r){
+      return "  · " + (r.c.text || "[image]");
+    }).join("\n");
+  }).filter(Boolean).join("\n\n") : "";
+
+  host.innerHTML = pre +
+    stack("Split — decide together", "One of you wants it, the other doesn't. Talk, then pick.", g.split, true) +
+    stack("Canon", "", g.in, false) +
+    stack("Cut", "", g.out, false) +
+    (canonText ? '<div class="stack"><div class="stackhead"><h3>The canon, as text</h3></div>' +
+      '<pre class="canon">'+esc(((B.title&&B.title.val)||"untitled feature")+"\n\n"+canonText)+'</pre></div>' : "");
+
+  host.onclick = function(e){
+    var b = e.target.closest("button[data-d]"); if (!b) return;
+    decide(b.closest(".card").getAttribute("data-id"), b.getAttribute("data-d"));
+  };
+}
+
+/* ================= bindings ================= */
+$("tab1").onclick = function(){ setPhase(1); };
+$("tab2").onclick = function(){ setPhase(2); };
+$("tab3").onclick = function(){ setPhase(3); };
+$("shareBtn").onclick = function(){ V.sheet = V.sheet==="share"?null:"share"; V.flash=null; render(); };
+$("mergeBtn").onclick = function(){ V.sheet = V.sheet==="merge"?null:"merge"; V.flash=null; render(); };
+
+var ta = $("drop");
+ta.addEventListener("input", function(){
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 132) + "px";
+});
+ta.addEventListener("keydown", function(e){
+  if (e.key==="Enter" && (e.metaKey||e.ctrlKey)) { e.preventDefault(); submitText(); }
+});
+$("send").onclick = submitText;
+$("pickPhoto").onclick = function(){ $("file").click(); };
+$("file").onchange = function(e){
+  var fs = Array.prototype.slice.call(e.target.files||[]);
+  e.target.value = "";
+  fs.forEach(submitPhoto);
+};
+
+var mf = document.createElement("input");
+mf.type = "file"; mf.accept = "application/json,.json"; mf.id = "mergeFile"; mf.hidden = true;
+mf.onchange = function(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (f) mergeFromFile(f);
+};
+document.body.appendChild(mf);
+
+var tt = null;
+$("filmTitle").addEventListener("input", function(){
+  clearTimeout(tt);
+  tt = setTimeout(function(){
+    var v = $("filmTitle").value.trim();
+    if (v === ((B.title&&B.title.val)||"")) return;
+    B.title = { val:v, ts:now() };
+    lsSet(K_BOARD, B);
+  }, 500);
+});
+// The name commits on every keystroke, not on a debounce — a card dropped a
+// moment after typing it must not be filed under "unnamed".
+var nt = null, nameAtRest = ME;
+$("myName").addEventListener("input", function(){
+  ME = $("myName").value.trim();
+  lsSet(K_ME, ME);
+  clearTimeout(nt);
+  nt = setTimeout(function(){
+    if (nameAtRest && nameAtRest !== ME && B.passes[nameAtRest]) {
+      B.passes[ME] = B.passes[nameAtRest];
+      delete B.passes[nameAtRest];
+    }
+    nameAtRest = ME;
+    saveBoard();
+  }, 400);
+});
+
+$("legend").innerHTML = CATS.map(function(c){
+  return '<div class="lg"><div class="chip" style="background:'+catColor(c.id)+'"></div>' +
+         '<div class="nm">'+esc(c.label)+'</div><div class="ex">'+esc(c.ex)+'</div></div>';
+}).join("");
+
+render();
+incoming();
+if (!ME) cnote("Put your name in the top right — it labels your cards and your pass.");
+})();
+</script>
+</body>
+</html>
