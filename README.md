@@ -11,6 +11,12 @@ Each project keeps its own scenes, cards, passes and decisions, and Share/Merge 
 project you have open — a board someone sends you that this phone has never seen arrives as its
 own project rather than mixing into the one you're looking at.
 
+## Filtering
+
+A rail under the phase tabs filters by category, with a live count on each chip. Tap **Character**
+to see only character cards, tap **Visual** as well to see both, tap **All** to come back. The
+filter follows you into the sealed pass and the Lock, and each phone remembers its own.
+
 ## The three phases
 
 1. **Dump** — the reel is a list of **scenes**. Name a scene, then drop lines, locations, looks,
@@ -27,9 +33,18 @@ own project rather than mixing into the one you're looking at.
    then Canon and Cut. The canon renders as plain text, scene by scene with categories inside —
    close to a treatment you can paste somewhere else.
 
-## Sync
+## Live sync
 
-There is no backend. **Share** hands the other phone your whole board — a link (straight into
+Turn it on from the project sheet and both phones keep this project in step on their own — no
+tapping Merge. It runs on Firebase (free tier); paste a web config into the `FB` constant at the
+top of `index.html` to switch it on. The room id is a 20-character random string stored with the
+board, so sending one Share link is what joins the other phone; after that it is automatic.
+Anyone who knows a room id can read and write that board, so treat the id as the secret.
+Photos sync in their own subcollection because a Firestore document caps at 1 MiB.
+
+## Share and Merge
+
+With or without live sync, boards also move by hand. **Share** hands the other phone your whole board — a link (straight into
 WhatsApp or iMessage; photos don't fit in a link) or a file (carries everything). **Merge** folds
 theirs into yours: union by scene and by card, whichever version was edited last wins, deletes are
 tombstoned so they don't come back, and your own sealed pass is never overwritten. Merging both

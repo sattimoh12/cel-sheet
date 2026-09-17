@@ -128,6 +128,11 @@ h1,h2,h3{margin:0;text-wrap:balance;font-weight:600;letter-spacing:-.01em}
   font-size:13.5px;font-weight:600;color:var(--ink)}
 .projrow.on .nm{color:var(--accent)}
 .projrow .tick{flex:0 0 auto;width:14px;color:var(--accent);font-size:11px}
+.sync{letter-spacing:.05em;white-space:nowrap}
+.sync.live{color:var(--good)}
+.sync.bad{color:var(--accent)}
+.sync.wait{color:var(--warn)}
+.sync.off{color:var(--ink-3)}
 .sheet input.rename{
   width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
   color:var(--ink);font-family:inherit;font-size:14px;padding:8px 10px;
@@ -302,6 +307,20 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
 }
 .emptyscene{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);padding:2px 2px 6px}
 
+/* category filter rail */
+.catrail{display:flex;gap:5px;overflow-x:auto;padding-bottom:10px;margin-bottom:2px;scrollbar-width:none}
+.catrail::-webkit-scrollbar{display:none}
+.crchip{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:5px 8px;border-radius:99px;cursor:pointer;white-space:nowrap;
+}
+.crchip .n{font-size:9px;opacity:.6;font-variant-numeric:tabular-nums}
+.crchip[aria-pressed="true"]{font-weight:500;background:var(--panel)}
+.crchip.all[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.crchip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
 /* composer scene rail */
 .scenerail{display:flex;gap:5px;overflow-x:auto;padding-bottom:7px;margin-bottom:2px;scrollbar-width:none}
 .scenerail::-webkit-scrollbar{display:none}
@@ -329,6 +348,7 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
     <div class="syncrow">
       <button class="btn xs" id="shareBtn">Share ↗</button>
       <button class="btn xs" id="mergeBtn">Merge ↙</button>
+      <span class="count sync off" id="syncDot">sync off</span>
       <span class="spacer"></span>
       <span class="count" id="tally">0 cards</span>
     </div>
@@ -340,6 +360,7 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
   </div>
 
   <div class="phase">
+    <div class="catrail" id="catrail" aria-label="Show only these categories"></div>
     <div id="sync"></div>
 
     <section id="p1">
@@ -381,6 +402,19 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
 <script>
 (function(){
 "use strict";
+
+/* ================= live sync config =================
+   Paste the Firebase web config here to turn on background sync between
+   phones. Until then the app runs entirely on-device and Share/Merge is
+   the only way boards move. These values are meant to be public — the
+   database is protected by the room id, not by this object. */
+var FB = null;
+/* var FB = {
+  apiKey: "...", authDomain: "....firebaseapp.com",
+  projectId: "...", storageBucket: "....appspot.com",
+  messagingSenderId: "...", appId: "..."
+}; */
+var FB_SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 
 /* ================= categories ================= */
 var CATS = [
@@ -486,7 +520,7 @@ function loadProject(pid){
   if (!B.phase) B.phase = { val:1, ts:0 };
   MYV = lsGet(myvKey(pid), {}) || {};
 }
-function saveBoard(){ lsSet(boardKey(B.id), B); render(); }
+function saveBoard(){ lsSet(boardKey(B.id), B); render(); cloudSchedule(); }
 function saveMyv(){ lsSet(myvKey(B.id), MYV); }
 
 function projectMeta(pid){
@@ -504,6 +538,7 @@ function switchProject(pid){
   loadProject(pid);
   V.deckIdx = 0; V.scene = ""; V.sheet = null; V.pending = null;
   render();
+  cloudStart();
 }
 function newProject(name){
   var b = freshBoard();
@@ -537,7 +572,8 @@ window.addEventListener("storage", function(e){
 });
 
 /* ================= view state ================= */
-var V = { deckIdx:0, sheet:null, pending:null, flash:null, scene:"", focusScene:null };
+var V = { deckIdx:0, sheet:null, pending:null, flash:null, scene:"", focusScene:null,
+          cats: lsGet("cel:cats", {}) || {} };   // empty = show everything
 
 function $(id){ return document.getElementById(id); }
 function esc(s){
@@ -732,7 +768,8 @@ function exportObj(withImages){
     cards[k] = o;
   });
   return { obj:{ v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
-                 scenes:B.scenes, cards:cards, passes:B.passes, dec:B.dec }, stripped:stripped };
+                 room:B.room||"", scenes:B.scenes, cards:cards, passes:B.passes,
+                 dec:B.dec }, stripped:stripped };
 }
 function b64url(bytes){
   var s=""; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]);
@@ -803,7 +840,10 @@ function merge(inc){
   });
   if (inc.title && (inc.title.ts||0) > (B.title.ts||0)) B.title = inc.title;
   if (inc.phase && (inc.phase.ts||0) > (B.phase.ts||0)) B.phase = inc.phase;
+  var joined = false;
+  if (inc.room && !B.room) { B.room = inc.room; joined = true; }
   saveBoard();
+  if (joined) cloudStart();
   return { added:added, updated:updated, passes:passes, scenes:scenes,
            from:inc.from||"them", sameBoard:sameBoard };
 }
@@ -911,6 +951,146 @@ function report(r){
   render();
 }
 
+/* ================= live sync =================
+   The room doc holds exactly the same payload Share sends, gzipped: one
+   `merge()` serves both paths. Photos ride in a subcollection because a
+   Firestore document caps at 1 MiB. */
+var Cloud = { db:null, room:null, unsub:null, unsubPhotos:null,
+              pushT:null, lastZ:null, status:"off", remotePhotos:{}, err:"" };
+
+function cloudConfigured(){ return !!FB; }
+function setCloudStatus(s, err){
+  if (Cloud.status === s && !err) return;
+  Cloud.status = s; Cloud.err = err || "";
+  paintCloud();
+}
+function paintCloud(){
+  var el = $("syncDot"); if (!el) return;
+  if (!B.room)                 { el.textContent = "sync off";     el.className = "count sync off";  return; }
+  if (Cloud.status === "live") { el.textContent = "● live";        el.className = "count sync live"; return; }
+  if (Cloud.status === "error"){ el.textContent = "! sync failed"; el.className = "count sync bad";  return; }
+  el.textContent = "… syncing"; el.className = "count sync wait";
+}
+
+var fbPromise = null;
+function loadFirebase(){
+  if (fbPromise) return fbPromise;
+  fbPromise = new Promise(function(res, rej){
+    if (!FB) { rej(new Error("not configured")); return; }
+    function grab(file, next){
+      var s = document.createElement("script");
+      s.src = FB_SDK + file;
+      s.onload = next;
+      s.onerror = function(){ rej(new Error("could not load Firebase")); };
+      document.head.appendChild(s);
+    }
+    grab("firebase-app-compat.js", function(){
+      grab("firebase-firestore-compat.js", function(){
+        try {
+          if (!window.firebase.apps.length) window.firebase.initializeApp(FB);
+          res(window.firebase.firestore());
+        } catch(e){ rej(e); }
+      });
+    });
+  });
+  return fbPromise;
+}
+
+function roomRef(){ return Cloud.db.collection("boards").doc(Cloud.room); }
+
+function cloudStop(){
+  if (Cloud.unsub) { Cloud.unsub(); Cloud.unsub = null; }
+  if (Cloud.unsubPhotos) { Cloud.unsubPhotos(); Cloud.unsubPhotos = null; }
+  clearTimeout(Cloud.pushT);
+  Cloud.room = null; Cloud.lastZ = null; Cloud.remotePhotos = {};
+  setCloudStatus("off");
+}
+
+function cloudStart(){
+  if (!B.room || !cloudConfigured()) { cloudStop(); return; }
+  if (Cloud.room === B.room && Cloud.db) return;
+  cloudStop();
+  Cloud.room = B.room;
+  setCloudStatus("wait");
+  loadFirebase().then(function(db){
+    Cloud.db = db;
+    if (Cloud.room !== B.room) return;               // switched away while loading
+    Cloud.unsub = roomRef().onSnapshot(function(snap){
+      var d = snap.data();
+      if (!d || !d.z) { cloudPush(true); return; }
+      if (d.z === Cloud.lastZ) { setCloudStatus("live"); return; }
+      decode(d.z).then(function(inc){
+        try { merge(inc); } catch(e){}               // saveBoard + render happen inside
+        setCloudStatus("live");
+        cloudPush();                                 // push back only if we're richer
+      }, function(){ setCloudStatus("error", "unreadable board"); });
+    }, function(e){ setCloudStatus("error", (e && e.code) || "offline"); });
+
+    Cloud.unsubPhotos = roomRef().collection("photos").onSnapshot(function(s){
+      var changed = false;
+      s.docChanges().forEach(function(ch){
+        var id = ch.doc.id;
+        if (ch.type === "removed") { delete Cloud.remotePhotos[id]; return; }
+        Cloud.remotePhotos[id] = 1;
+        var d = ch.doc.data();
+        if (d && d.img && B.cards[id] && !B.cards[id].img && !B.cards[id].deleted) {
+          B.cards[id].img = d.img; changed = true;
+        }
+      });
+      if (changed) { lsSet(boardKey(B.id), B); render(); }
+      cloudPushPhotos();
+    }, function(){});
+
+    cloudPush(true);
+  }, function(e){
+    setCloudStatus("error", e && e.message ? e.message : "no connection");
+  });
+}
+
+function cloudSchedule(){
+  if (!Cloud.db || !Cloud.room) return;
+  clearTimeout(Cloud.pushT);
+  Cloud.pushT = setTimeout(function(){ cloudPush(); cloudPushPhotos(); }, 1200);
+}
+
+function cloudPush(force){
+  if (!Cloud.db || !Cloud.room) return;
+  var ex = exportObj(false);                          // photos travel separately
+  encode(ex.obj).then(function(z){
+    if (!force && z === Cloud.lastZ) return;
+    Cloud.lastZ = z;
+    roomRef().set({ z:z, by: ME || "unnamed", at: Date.now() }).then(function(){
+      setCloudStatus("live");
+    }, function(e){ setCloudStatus("error", (e && e.code) || "write refused"); });
+  }, function(){});
+}
+
+function cloudPushPhotos(){
+  if (!Cloud.db || !Cloud.room) return;
+  Object.keys(B.cards).forEach(function(id){
+    var c = B.cards[id];
+    if (!c || c.deleted || !c.img || Cloud.remotePhotos[id]) return;
+    Cloud.remotePhotos[id] = 1;                       // claim it before the await
+    roomRef().collection("photos").doc(id).set({ img: c.img })
+      .catch(function(){ delete Cloud.remotePhotos[id]; });
+  });
+}
+
+function syncOn(){
+  if (!cloudConfigured()) {
+    V.flash = { kind:"warn", msg:"Live sync isn't wired up on this copy yet. Share and Merge still work." };
+    render(); return;
+  }
+  B.room = B.room || rid(20);
+  saveBoard();
+  cloudStart();
+}
+function syncOff(){
+  delete B.room;
+  cloudStop();
+  saveBoard();
+}
+
 /* ================= incoming link ================= */
 // Runs on load AND on every hashchange — tapping a second share link while the
 // page is already open (or pinned to the home screen) only changes the hash.
@@ -943,6 +1123,38 @@ function setPhase(n){
   saveBoard();
 }
 
+/* ================= category filter ================= */
+function catsOn(){ return Object.keys(V.cats).filter(function(k){ return V.cats[k]; }); }
+function passesFilter(c){
+  var on = catsOn();
+  if (!on.length) return true;
+  return on.indexOf(c.category || "none") >= 0;
+}
+function toggleCat(id){
+  if (V.cats[id]) delete V.cats[id]; else V.cats[id] = 1;
+  lsSet("cel:cats", V.cats);
+  V.deckIdx = 0;
+  render();
+}
+function clearCats(){ V.cats = {}; lsSet("cel:cats", V.cats); V.deckIdx = 0; render(); }
+
+function renderCatRail(counts){
+  var rail = $("catrail"), on = catsOn();
+  rail.innerHTML =
+    '<button class="crchip all" data-c="*" aria-pressed="'+(on.length===0)+'">All</button>' +
+    CATS.map(function(k){
+      var n = counts[k.id] || 0, sel = !!V.cats[k.id];
+      return '<button class="crchip" data-c="'+k.id+'" aria-pressed="'+sel+'" '+
+             'style="'+(sel?"color:"+catColor(k.id)+";border-color:currentColor":"")+'">' +
+             esc(k.label)+'<span class="n">'+n+'</span></button>';
+    }).join("");
+  rail.onclick = function(e){
+    var b = e.target.closest("button[data-c]"); if (!b) return;
+    var v = b.getAttribute("data-c");
+    if (v === "*") clearCats(); else toggleCat(v);
+  };
+}
+
 /* ================= render ================= */
 function render(){
   var ph = (B.phase && B.phase.val) || 1;
@@ -956,14 +1168,21 @@ function render(){
 
   var live = liveCards();
   var names = {}; live.forEach(function(c){ if (c.author) names[c.author]=1; });
+  var counts = {};
+  live.forEach(function(c){ var k = c.category||"none"; counts[k] = (counts[k]||0)+1; });
+  renderCatRail(counts);
+  var all = live;
+  live = live.filter(passesFilter);
+
   var ns = liveScenes().length;
-  $("tally").textContent = live.length + " card" + (live.length===1?"":"s") +
+  $("tally").textContent = (catsOn().length ? live.length + " of " + all.length : all.length + " card" + (all.length===1?"":"s")) +
     (ns ? " · " + ns + " scene" + (ns===1?"":"s") : "") +
     (Object.keys(names).length>1 ? " · " + Object.keys(names).length + " phones" : "");
 
   $("projName").textContent = projectName();
   if (document.activeElement !== $("myName")) $("myName").value = ME;
 
+  paintCloud();
   renderSync();
   if (ph===1) { renderRail(); renderReel(live); }
   else if (ph===2) renderDeck(live);
@@ -998,6 +1217,19 @@ function renderSync(){
       }).join("") +
       '<input class="rename" id="renameBox" maxlength="70" placeholder="name this project" ' +
         'value="'+esc((B.title&&B.title.val)||"")+'" aria-label="Project name">' +
+      '<div class="row" style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line-soft)">' +
+        '<span class="nm" style="flex:1">Live sync</span>' +
+        (B.room
+          ? '<span class="count sync '+(Cloud.status==="live"?"live":Cloud.status==="error"?"bad":"wait")+'">' +
+              (Cloud.status==="live"?"● live":Cloud.status==="error"?"! "+esc(Cloud.err||"failed"):"… connecting")+'</span>' +
+            '<button class="btn sm" data-x="syncoff">Turn off</button>'
+          : '<button class="btn primary sm" data-x="syncon">Turn on</button>') +
+      '</div>' +
+      '<p class="note">' + (B.room
+        ? "Both phones stay in step on their own. If theirs isn't linked yet, send one Share link — that's what joins them."
+        : (cloudConfigured()
+            ? "Keeps this project in step between phones without tapping Merge."
+            : "Not wired up on this copy yet — Share and Merge still work.")) + '</p>' +
       '<div class="row" style="margin-top:8px">' +
         '<button class="btn primary sm" data-x="newproj">＋ New project</button>' +
         '<button class="btn sm ghost" data-x="close">Close</button></div>' +
@@ -1036,6 +1268,8 @@ function renderSync(){
     else if (x==="newproj") newProject("");
     else if (x==="open") switchProject(b.closest(".projrow").getAttribute("data-p"));
     else if (x==="del") deleteProject(b.closest(".projrow").getAttribute("data-p"));
+    else if (x==="syncon") syncOn();
+    else if (x==="syncoff") syncOff();
   };
   var rb = $("renameBox");
   if (rb) rb.oninput = function(){ renameProject(rb.value.trim()); };
@@ -1370,6 +1604,7 @@ $("legend").innerHTML = CATS.map(function(c){
 }).join("");
 
 render();
+cloudStart();
 incoming();
 if (!ME) cnote("Put your name in the top right — it labels your cards and your pass.");
 })();
