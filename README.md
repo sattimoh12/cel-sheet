@@ -61,6 +61,14 @@ The room id (20 characters, the document address) and the key travel together in
 Losing the key only loses the cloud copy; both phones still hold the board. With sync off, nothing
 leaves the phone.
 
+If a project reads **re-pair** instead of *synced*, it was paired before encryption existed: it has a
+room but no key, so it cannot sync. Tap **Re-pair** in the project sheet — it mints a fresh room and
+key, keeps the board, and abandons the old room. Then send one new Share link; the old link is dead.
+
+The project sheet also shows the **build stamp** and a **Reload page** button, because a page added
+to the iOS home screen holds on to old HTML; the button reloads with a fresh query string to break
+that cache. If two phones disagree, check the build stamp on both first.
+
 The security rules allow reads and writes on `boards/{room}` only when the room id is exactly 20
 characters and the document is the encrypted shape, under 900 KB. Plaintext writes, extra fields,
 short ids and oversized blobs are all refused.

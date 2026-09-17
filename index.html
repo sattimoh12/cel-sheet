@@ -432,6 +432,7 @@ var FB = {
   appId: "1:1030250897097:web:dd5b80c670bf56f366b718"
 };
 var FB_SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
+var BUILD = "18 Sep · encrypted";
 
 /* ================= categories ================= */
 var BUILTIN = [
@@ -598,7 +599,7 @@ function projectMeta(pid){
   var cards = b.cards || {}, n = 0;
   Object.keys(cards).forEach(function(k){ if (!cards[k].deleted) n++; });
   return { id:pid, name:((b.title && b.title.val) || ""), cards:n,
-           linked: !!(b.room && b.skey) };
+           linked: !!(b.room && b.skey), repair: needsRepair(b) };
 }
 function projectName(){ return (B.title && B.title.val) || "untitled feature"; }
 
@@ -1080,6 +1081,16 @@ var Cloud = { db:null, room:null, unsub:null, unsubPhotos:null,
               pushT:null, lastZ:null, status:"off", remotePhotos:{}, err:"" };
 
 function cloudConfigured(){ return !!FB; }
+
+// A project paired BEFORE end-to-end encryption existed has a room but no key.
+// It cannot sync and must be re-paired — say so instead of going quiet.
+function needsRepair(b){ b = b || B; return !!(b.room && !b.skey); }
+function syncState(){
+  if (!cloudConfigured()) return "unconfigured";
+  if (needsRepair()) return "repair";
+  if (!B.room) return "off";
+  return Cloud.status === "off" ? "wait" : Cloud.status;
+}
 function setCloudStatus(s, err){
   if (Cloud.status === s && !err) return;
   Cloud.status = s; Cloud.err = err || "";
@@ -1087,10 +1098,22 @@ function setCloudStatus(s, err){
 }
 function paintCloud(){
   var el = $("syncDot"); if (!el) return;
-  if (!B.room)                 { el.textContent = "sync off";     el.className = "count sync off";  return; }
-  if (Cloud.status === "live") { el.textContent = "● live";        el.className = "count sync live"; return; }
-  if (Cloud.status === "error"){ el.textContent = "! sync failed"; el.className = "count sync bad";  return; }
+  var st = syncState();
+  if (st === "repair") { el.textContent = "re-pair needed"; el.className = "count sync bad";  return; }
+  if (st === "off")    { el.textContent = "sync off";       el.className = "count sync off";  return; }
+  if (st === "live")   { el.textContent = "● live";          el.className = "count sync live"; return; }
+  if (st === "error")  { el.textContent = "! " + (Cloud.err || "sync failed"); el.className = "count sync bad"; return; }
   el.textContent = "… syncing"; el.className = "count sync wait";
+}
+
+// Mint a brand-new room and key. The old room is abandoned, not reused, so a
+// stale document can never be mistaken for the current board.
+function repair(){
+  delete B.room; delete B.skey;
+  cloudStop();
+  syncOn();
+  V.flash = { kind:"ok", msg:"Re-paired. Now send <b>one</b> Share link to the other phone — the old link is dead." };
+  render();
 }
 
 var fbPromise = null;
@@ -1377,8 +1400,8 @@ function renderSync(){
           '<span class="tick">'+(on?"●":"")+'</span>' +
           '<button class="btn ghost sm nm" data-x="open" style="text-align:left;border:0;padding:0">' +
             esc(m.name || "untitled feature") + '</button>' +
-          '<span class="count sync '+(m.linked?"live":"off")+'">' +
-            (m.linked ? "synced" : "this phone only") + '</span>' +
+          '<span class="count sync '+(m.repair?"bad":m.linked?"live":"off")+'">' +
+            (m.repair ? "re-pair" : m.linked ? "synced" : "this phone only") + '</span>' +
           '<span class="count">'+m.cards+'</span>' +
           '<button class="btn ghost xs" data-x="del" aria-label="Delete project">×</button>' +
         '</div>';
@@ -1387,17 +1410,35 @@ function renderSync(){
         'value="'+esc((B.title&&B.title.val)||"")+'" aria-label="Project name">' +
       '<div class="row" style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line-soft)">' +
         '<span class="nm" style="flex:1">Live sync</span>' +
-        (B.room
-          ? '<span class="count sync '+(Cloud.status==="live"?"live":Cloud.status==="error"?"bad":"wait")+'">' +
-              (Cloud.status==="live"?"● live":Cloud.status==="error"?"! "+esc(Cloud.err||"failed"):"… connecting")+'</span>' +
-            '<button class="btn sm" data-x="syncoff">Turn off</button>'
-          : '<button class="btn primary sm" data-x="syncon">Turn on</button>') +
+        (function(){
+          var st = syncState();
+          if (st === "repair")
+            return '<span class="count sync bad">re-pair needed</span>' +
+                   '<button class="btn primary sm" data-x="repair">Re-pair</button>';
+          if (!B.room) return '<button class="btn primary sm" data-x="syncon">Turn on</button>';
+          return '<span class="count sync '+(st==="live"?"live":st==="error"?"bad":"wait")+'">' +
+                 (st==="live" ? "● live" : st==="error" ? "! "+esc(Cloud.err||"failed") : "… connecting") +
+                 '</span><button class="btn sm" data-x="syncoff">Turn off</button>';
+        })() +
       '</div>' +
-      '<p class="note">' + (B.room
-        ? "Both phones stay in step on their own. If theirs isn't linked yet, send one Share link — that's what joins them."
-        : (cloudConfigured()
-            ? "Keeps this project in step between phones without tapping Merge."
-            : "Not wired up on this copy yet — Share and Merge still work.")) + '</p>' +
+      '<p class="note">' + (function(){
+        var st = syncState();
+        if (st === "repair")
+          return "This project was paired before the board was encrypted, so its old link no longer " +
+                 "works. Tap <b>Re-pair</b>, then send one new Share link. Nothing in the board is lost.";
+        if (st === "error")
+          return "Reported: <b>" + esc(Cloud.err || "unknown") + "</b>. If the other phone is on an " +
+                 "older copy of the page, tap Reload below on both.";
+        if (B.room)
+          return "Both phones stay in step on their own. If theirs isn't paired yet, send one Share " +
+                 "link — that's what joins them.";
+        return cloudConfigured()
+          ? "Keeps this project in step between phones without tapping Merge."
+          : "Not wired up on this copy yet — Share and Merge still work.";
+      })() + '</p>' +
+      '<div class="row" style="margin-top:8px">' +
+        '<span class="count" style="flex:1">build ' + esc(BUILD) + '</span>' +
+        '<button class="btn sm ghost" data-x="reload">Reload page</button></div>' +
       '<div class="row" style="margin-top:8px">' +
         '<button class="btn primary sm" data-x="newproj">＋ New project</button>' +
         '<button class="btn sm ghost" data-x="close">Close</button></div>' +
@@ -1440,6 +1481,9 @@ function renderSync(){
     else if (x==="del") deleteProject(b.closest(".projrow").getAttribute("data-p"));
     else if (x==="syncon") syncOn();
     else if (x==="syncoff") syncOff();
+    else if (x==="repair") repair();
+    // a home-screen web app clings to the old HTML; a fresh query string breaks that
+    else if (x==="reload") location.href = location.pathname + "?v=" + Date.now();
   };
   var rb = $("renameBox");
   if (rb) rb.oninput = function(){ renameProject(rb.value.trim()); };
