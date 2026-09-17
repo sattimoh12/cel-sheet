@@ -320,6 +320,21 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
 .crchip[aria-pressed="true"]{font-weight:500;background:var(--panel)}
 .crchip.all[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .crchip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.crchip.new{border-style:dashed;color:var(--ink-3)}
+.crwrap{flex:0 0 auto;display:flex;align-items:center;gap:2px}
+.crx{
+  border:1px solid var(--line);background:transparent;color:var(--ink-3);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;line-height:1;
+  padding:5px 6px;border-radius:99px;cursor:pointer;
+}
+.crx:hover{color:var(--accent);border-color:currentColor}
+.crx:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.crnew{
+  flex:0 0 auto;width:110px;border:1px solid var(--accent);border-radius:99px;
+  background:var(--panel);color:var(--ink);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;
+  text-transform:uppercase;padding:5px 9px;
+}
 
 /* composer scene rail */
 .scenerail{display:flex;gap:5px;overflow-x:auto;padding-bottom:7px;margin-bottom:2px;scrollbar-width:none}
@@ -408,16 +423,18 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
    phones. Until then the app runs entirely on-device and Share/Merge is
    the only way boards move. These values are meant to be public — the
    database is protected by the room id, not by this object. */
-var FB = null;
-/* var FB = {
-  apiKey: "...", authDomain: "....firebaseapp.com",
-  projectId: "...", storageBucket: "....appspot.com",
-  messagingSenderId: "...", appId: "..."
-}; */
+var FB = {
+  apiKey: "AIzaSyCm3GqOfJ6-e61qXhQby5hm14owBhMEe8s",
+  authDomain: "cel-sheet.firebaseapp.com",
+  projectId: "cel-sheet",
+  storageBucket: "cel-sheet.firebasestorage.app",
+  messagingSenderId: "1030250897097",
+  appId: "1:1030250897097:web:dd5b80c670bf56f366b718"
+};
 var FB_SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 
 /* ================= categories ================= */
-var CATS = [
+var BUILTIN = [
   {id:"dialogue",  label:"Dialogue",  ex:"a spoken line, a voice, a silence"},
   {id:"character", label:"Character", ex:"who someone is, how they're drawn"},
   {id:"setting",   label:"Setting",   ex:"a place, a time, weather, a room"},
@@ -427,9 +444,60 @@ var CATS = [
   {id:"reference", label:"Reference", ex:"a film, a page, something borrowed"},
   {id:"none",      label:"No category", ex:"leave it unsorted"}
 ];
-var CATMAP={}; CATS.forEach(function(c){CATMAP[c.id]=c;});
-function catColor(id){ return "var(--c-"+(CATMAP[id]?id:"none")+")"; }
-function catLabel(id){ return CATMAP[id]?CATMAP[id].label:"No category"; }
+var BUILTMAP={}; BUILTIN.forEach(function(c){BUILTMAP[c.id]=c;});
+
+// Tabs the two of you add yourselves. They live on the board, so they travel
+// with Share, Merge and live sync exactly like scenes do.
+var OWN_HUES = ["#C9634B","#2E8B8B","#8E7CC3","#B5843A","#5E9E3E","#C05A8D","#4A7FB5","#9A6B4F"];
+function ownCats(){
+  if (!B || !B.tabs) return [];
+  return Object.keys(B.tabs)
+    .map(function(k){ var t=B.tabs[k];
+      return { id:k, label:t.label||"Untitled", hue:t.hue||OWN_HUES[0],
+               order:t.order||0, deleted:!!t.deleted, own:true, ex:"" }; })
+    .filter(function(t){ return !t.deleted; })
+    .sort(function(a,b){ return (a.order-b.order) || (a.id<b.id?-1:1); });
+}
+// "No category" always sits last, after any tab you added
+function CATSLIST(){
+  var own = ownCats();
+  return BUILTIN.slice(0, BUILTIN.length-1).concat(own, [BUILTMAP.none]);
+}
+function catRec(id){
+  if (BUILTMAP[id]) return BUILTMAP[id];
+  var t = B && B.tabs && B.tabs[id];
+  if (t && !t.deleted) return { id:id, label:t.label||"Untitled", hue:t.hue, own:true };
+  return null;
+}
+function catColor(id){
+  var r = catRec(id);
+  if (!r) return "var(--c-none)";
+  return r.own ? r.hue : "var(--c-"+id+")";
+}
+function catLabel(id){ var r = catRec(id); return r ? r.label : "No category"; }
+
+function addTab(label){
+  var name = String(label||"").trim();
+  if (!name) return null;
+  var own = ownCats(), max = 0;
+  own.forEach(function(t){ if (t.order > max) max = t.order; });
+  var dup = own.filter(function(t){ return t.label.toLowerCase() === name.toLowerCase(); })[0];
+  if (dup) { V.cats = {}; V.cats[dup.id] = 1; lsSet("cel:cats", V.cats); render(); return dup.id; }
+  var id = "t_" + rid(6);
+  B.tabs[id] = { label:name, hue: OWN_HUES[own.length % OWN_HUES.length],
+                 order:max+1, edited:now() };
+  saveBoard();
+  return id;
+}
+function deleteTab(id){
+  var t = B.tabs && B.tabs[id]; if (!t) return;
+  B.tabs[id] = { deleted:true, edited:now(), order:t.order||0 };
+  Object.keys(B.cards).forEach(function(k){                 // cards fall back to unsorted
+    if (B.cards[k].category === id) { B.cards[k].category = "none"; B.cards[k].edited = now(); }
+  });
+  delete V.cats[id]; lsSet("cel:cats", V.cats);
+  saveBoard();
+}
 
 /* ================= on-device classifier ================= */
 var RULES = [
@@ -478,7 +546,7 @@ function rid(n){
 }
 function freshBoard(){
   return { v:1, id:rid(10), title:{val:"",ts:0}, phase:{val:1,ts:0},
-           scenes:{}, cards:{}, passes:{}, dec:{} };
+           scenes:{}, tabs:{}, cards:{}, passes:{}, dec:{} };
 }
 
 // One board per project. The board's own id is the project id.
@@ -516,6 +584,7 @@ function loadProject(pid){
   if (!B.passes) B.passes = {};
   if (!B.dec) B.dec = {};
   if (!B.scenes) B.scenes = {};
+  if (!B.tabs) B.tabs = {};
   if (!B.title) B.title = { val:"", ts:0 };
   if (!B.phase) B.phase = { val:1, ts:0 };
   MYV = lsGet(myvKey(pid), {}) || {};
@@ -573,7 +642,8 @@ window.addEventListener("storage", function(e){
 
 /* ================= view state ================= */
 var V = { deckIdx:0, sheet:null, pending:null, flash:null, scene:"", focusScene:null,
-          cats: lsGet("cel:cats", {}) || {} };   // empty = show everything
+          cats: lsGet("cel:cats", {}) || {},     // empty = show everything
+          newTab:false, confirmRm:null };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){
@@ -768,7 +838,8 @@ function exportObj(withImages){
     cards[k] = o;
   });
   return { obj:{ v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
-                 room:B.room||"", scenes:B.scenes, cards:cards, passes:B.passes,
+                 room:B.room||"", scenes:B.scenes, tabs:B.tabs,
+                 cards:cards, passes:B.passes,
                  dec:B.dec }, stripped:stripped };
 }
 function b64url(bytes){
@@ -811,11 +882,16 @@ function boardUrl(code){
 
 function merge(inc){
   if (!inc || !inc.cards) throw new Error("Not a Cel Sheet board.");
-  var added=0, updated=0, passes=0, scenes=0, sameBoard = (inc.id === B.id);
+  var added=0, updated=0, passes=0, scenes=0, tabs=0, sameBoard = (inc.id === B.id);
   Object.keys(inc.scenes||{}).forEach(function(k){
     var o = inc.scenes[k], mine = B.scenes[k];
     if (!mine) { B.scenes[k] = o; if (!o.deleted) scenes++; }
     else if ((o.edited||0) > (mine.edited||0)) { B.scenes[k] = o; }
+  });
+  Object.keys(inc.tabs||{}).forEach(function(k){
+    var o = inc.tabs[k], mine = B.tabs[k];
+    if (!mine) { B.tabs[k] = o; if (!o.deleted) tabs++; }
+    else if ((o.edited||0) > (mine.edited||0)) { B.tabs[k] = o; }
   });
   Object.keys(inc.cards).forEach(function(k){
     var o = inc.cards[k], mine = B.cards[k];
@@ -844,7 +920,7 @@ function merge(inc){
   if (inc.room && !B.room) { B.room = inc.room; joined = true; }
   saveBoard();
   if (joined) cloudStart();
-  return { added:added, updated:updated, passes:passes, scenes:scenes,
+  return { added:added, updated:updated, passes:passes, scenes:scenes, tabs:tabs,
            from:inc.from||"them", sameBoard:sameBoard };
 }
 
@@ -938,6 +1014,7 @@ function mergeFromFile(f){
 function report(r){
   var bits = [];
   if (r.scenes) bits.push(r.scenes + " new scene" + (r.scenes>1?"s":""));
+  if (r.tabs) bits.push(r.tabs + " new tab" + (r.tabs>1?"s":""));
   if (r.added) bits.push(r.added + " new card" + (r.added>1?"s":""));
   if (r.updated) bits.push(r.updated + " updated");
   if (r.passes) bits.push(r.passes + " sealed pass" + (r.passes>1?"es":""));
@@ -1142,17 +1219,47 @@ function renderCatRail(counts){
   var rail = $("catrail"), on = catsOn();
   rail.innerHTML =
     '<button class="crchip all" data-c="*" aria-pressed="'+(on.length===0)+'">All</button>' +
-    CATS.map(function(k){
+    CATSLIST().map(function(k){
       var n = counts[k.id] || 0, sel = !!V.cats[k.id];
-      return '<button class="crchip" data-c="'+k.id+'" aria-pressed="'+sel+'" '+
-             'style="'+(sel?"color:"+catColor(k.id)+";border-color:currentColor":"")+'">' +
-             esc(k.label)+'<span class="n">'+n+'</span></button>';
-    }).join("");
+      return '<span class="crwrap">' +
+        '<button class="crchip" data-c="'+k.id+'" aria-pressed="'+sel+'" '+
+          'style="'+(sel?"color:"+catColor(k.id)+";border-color:currentColor":"")+'">' +
+          esc(k.label)+'<span class="n">'+n+'</span></button>' +
+        (k.own ? '<button class="crx" data-rm="'+k.id+'" aria-label="Delete the '+
+                 esc(k.label)+' tab">×</button>' : '') +
+        '</span>';
+    }).join("") +
+    (V.newTab
+      ? '<input class="crnew" id="newTabBox" maxlength="18" placeholder="tab name" aria-label="New tab name">'
+      : '<button class="crchip new" data-c="+">＋ Tab</button>');
   rail.onclick = function(e){
+    var rm = e.target.closest("button[data-rm]");
+    if (rm) {
+      var id = rm.getAttribute("data-rm");
+      if (V.confirmRm === id) { V.confirmRm = null; deleteTab(id); }
+      else { V.confirmRm = id;
+             V.flash = { kind:"warn", msg:"Delete the <b>"+esc(catLabel(id))+
+               "</b> tab? Its cards become unsorted — tap × again to confirm." };
+             render(); }
+      return;
+    }
     var b = e.target.closest("button[data-c]"); if (!b) return;
     var v = b.getAttribute("data-c");
+    if (v === "+") { V.newTab = true; render(); var nb = $("newTabBox"); if (nb) nb.focus(); return; }
     if (v === "*") clearCats(); else toggleCat(v);
   };
+  var nb = $("newTabBox");
+  if (nb) {
+    nb.focus();
+    nb.onkeydown = function(e){
+      if (e.key === "Enter") { var v = nb.value; V.newTab = false; if (v.trim()) addTab(v); else render(); }
+      else if (e.key === "Escape") { V.newTab = false; render(); }
+    };
+    nb.onblur = function(){
+      var v = nb.value; V.newTab = false;
+      if (v.trim()) addTab(v); else render();
+    };
+  }
 }
 
 /* ================= render ================= */
@@ -1291,7 +1398,7 @@ function cardHTML(c, scenes){
         '<button class="btn ghost xs" data-act="del" aria-label="Remove card">×</button>' +
       '</div>' + media(c) +
       (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+linkify(c.text)+'</p>' : "") +
-      '<div class="picker">' + CATS.map(function(k){
+      '<div class="picker">' + CATSLIST().map(function(k){
         return '<button class="pick" data-act="cat" data-cat="'+k.id+'" aria-pressed="'+(cat===k.id)+'" '+
                'style="'+(cat===k.id?"color:"+catColor(k.id):"")+'">'+esc(k.label)+'</button>';
       }).join("") + '</div>' +
@@ -1516,12 +1623,13 @@ function renderLock(live){
   }
 
   // the canon reads like a treatment: scene by scene, category within each
+  var CL = CATSLIST();
   var buckets = liveScenes().map(function(s, i){ return { key:s.id, head:pad(i+1)+"  "+(s.title||"UNTITLED SCENE").toUpperCase() }; });
   buckets.push({ key:"", head:"UNFILED" });
   var canonText = g.in.length ? buckets.map(function(bk){
     var inScene = g.in.filter(function(r){ return sceneOf(r.c) === bk.key; });
     if (!inScene.length) return "";
-    var body = CATS.map(function(k){
+    var body = CATSLIST().map(function(k){
       var items = inScene.filter(function(r){ return (r.c.category||"none")===k.id; });
       if (!items.length) return "";
       return "  " + k.label.toUpperCase() + "\n" + items.map(function(r){
@@ -1598,7 +1706,7 @@ $("myName").addEventListener("input", function(){
   }, 400);
 });
 
-$("legend").innerHTML = CATS.map(function(c){
+$("legend").innerHTML = BUILTIN.map(function(c){
   return '<div class="lg"><div class="chip" style="background:'+catColor(c.id)+'"></div>' +
          '<div class="nm">'+esc(c.label)+'</div><div class="ex">'+esc(c.ex)+'</div></div>';
 }).join("");

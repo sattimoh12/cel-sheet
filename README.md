@@ -17,6 +17,11 @@ A rail under the phase tabs filters by category, with a live count on each chip.
 to see only character cards, tap **Visual** as well to see both, tap **All** to come back. The
 filter follows you into the sealed pass and the Lock, and each phone remembers its own.
 
+**＋ Tab** at the end of the rail adds your own category — Music, Editing, whatever the film needs.
+Custom tabs get their own colour, sit before No category, and travel with the board like scenes do.
+The × beside one deletes it (twice, to confirm) and its cards fall back to unsorted. The on-device
+classifier only knows the seven built-ins, so cards land in your own tabs by tapping.
+
 ## The three phases
 
 1. **Dump** — the reel is a list of **scenes**. Name a scene, then drop lines, locations, looks,
@@ -36,11 +41,15 @@ filter follows you into the sealed pass and the Lock, and each phone remembers i
 ## Live sync
 
 Turn it on from the project sheet and both phones keep this project in step on their own — no
-tapping Merge. It runs on Firebase (free tier); paste a web config into the `FB` constant at the
-top of `index.html` to switch it on. The room id is a 20-character random string stored with the
-board, so sending one Share link is what joins the other phone; after that it is automatic.
-Anyone who knows a room id can read and write that board, so treat the id as the secret.
-Photos sync in their own subcollection because a Firestore document caps at 1 MiB.
+tapping Merge. It runs on the `cel-sheet` Firebase project (Spark / no-cost, Firestore in the
+`eur3` European multi-region), and the header shows `● live`, `… syncing` or `! sync failed`.
+
+The room id is a 20-character random string stored with the board, so **sending one Share link is
+what joins the other phone** — after that it is automatic in both directions. The security rules
+allow reads and writes to `boards/{room}` only when the id is at least 16 characters, so the id is
+the secret: anyone who has it can read and write that board. The board itself is pushed as one
+gzipped string on a 1.2s debounce, and photos go in a `photos` subcollection because a Firestore
+document caps at 1 MiB. With sync off, nothing leaves the phone.
 
 ## Share and Merge
 
