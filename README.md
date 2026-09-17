@@ -4,6 +4,13 @@ A two-phone board for collaborating on an anime feature. One page, no accounts, 
 
 **Live:** https://sattimoh12.github.io/cel-sheet/
 
+## Projects
+
+The name at the top is the project. Tap it to rename it, switch between films, or start a new one.
+Each project keeps its own scenes, cards, passes and decisions, and Share/Merge only ever move the
+project you have open — a board someone sends you that this phone has never seen arrives as its
+own project rather than mixing into the one you're looking at.
+
 ## The three phases
 
 1. **Dump** — the reel is a list of **scenes**. Name a scene, then drop lines, locations, looks,

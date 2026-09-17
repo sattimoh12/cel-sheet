@@ -113,11 +113,25 @@ h1,h2,h3{margin:0;text-wrap:balance;font-weight:600;letter-spacing:-.01em}
 }
 .brandrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .brand{font-size:19px;font-weight:700;letter-spacing:-.02em;flex:0 0 auto}
-#filmTitle{
-  flex:1 1 120px;min-width:0;border:0;background:transparent;color:var(--ink-2);
-  font-family:inherit;font-size:13px;padding:3px 0;
+.projbtn{
+  flex:1 1 110px;min-width:0;display:flex;align-items:center;gap:5px;
+  border:1px solid var(--line);border-radius:99px;background:var(--panel-2);
+  color:var(--ink);font-family:inherit;font-size:12.5px;font-weight:600;
+  padding:4px 10px;cursor:pointer;overflow:hidden;
 }
-#filmTitle::placeholder{color:var(--ink-3)}
+.projbtn #projName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.projbtn .caret{color:var(--accent);flex:0 0 auto;font-size:10px}
+.projbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.projrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.projrow:last-of-type{border-bottom:none}
+.projrow .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13.5px;font-weight:600;color:var(--ink)}
+.projrow.on .nm{color:var(--accent)}
+.projrow .tick{flex:0 0 auto;width:14px;color:var(--accent);font-size:11px}
+.sheet input.rename{
+  width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink);font-family:inherit;font-size:14px;padding:8px 10px;
+}
 #myName{
   flex:0 0 auto;width:92px;border:1px solid var(--line);border-radius:99px;background:var(--panel-2);
   color:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:4px 9px;text-align:center;
@@ -302,7 +316,7 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
   <div class="top">
     <div class="brandrow">
       <span class="brand">Cel Sheet</span>
-      <input id="filmTitle" placeholder="untitled feature" maxlength="70" autocomplete="off">
+      <button class="projbtn" id="projBtn" aria-haspopup="true"><span id="projName">untitled feature</span><span class="caret">▾</span></button>
       <input id="myName" placeholder="your name" maxlength="14" autocomplete="off" aria-label="Your name on this phone">
     </div>
     <div class="syncrow">
@@ -400,7 +414,7 @@ function guessCategory(text){
 }
 
 /* ================= storage ================= */
-var K_BOARD="cel:board", K_ME="cel:me", K_MYV="cel:myv";
+var K_BOARD="cel:board", K_ME="cel:me", K_MYV="cel:myv", K_IDX="cel:idx";
 function lsGet(k, fb){
   try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; }
   catch(e){ return fb; }
@@ -426,19 +440,93 @@ function freshBoard(){
            scenes:{}, cards:{}, passes:{}, dec:{} };
 }
 
-var B  = lsGet(K_BOARD, null) || freshBoard();
-var ME = lsGet(K_ME, "") || "";
-var MYV= lsGet(K_MYV, {}) || {};
-if (!B.cards) B.cards = {};
-if (!B.passes) B.passes = {};
-if (!B.dec) B.dec = {};
-if (!B.scenes) B.scenes = {};
+// One board per project. The board's own id is the project id.
+function boardKey(pid){ return "cel:board:" + pid; }
+function myvKey(pid){ return "cel:myv:" + pid; }
 
-function saveBoard(){ lsSet(K_BOARD, B); render(); }
-function saveMyv(){ lsSet(K_MYV, MYV); }
+var ME = lsGet(K_ME, "") || "";
+var IDX = lsGet(K_IDX, null);
+var B, MYV;
+
+(function bootProjects(){
+  if (!IDX || !IDX.order || !IDX.order.length) {
+    var legacy = lsGet(K_BOARD, null);            // the pre-projects single board
+    if (legacy && legacy.id) {
+      lsSet(boardKey(legacy.id), legacy);
+      var lv = lsGet(K_MYV, null);
+      if (lv) lsSet(myvKey(legacy.id), lv);
+      try { localStorage.removeItem(K_BOARD); localStorage.removeItem(K_MYV); } catch(e){}
+      IDX = { active: legacy.id, order: [legacy.id] };
+    } else {
+      var b = freshBoard();
+      lsSet(boardKey(b.id), b);
+      IDX = { active: b.id, order: [b.id] };
+    }
+    lsSet(K_IDX, IDX);
+  }
+  if (IDX.order.indexOf(IDX.active) < 0) IDX.active = IDX.order[0];
+  loadProject(IDX.active);
+})();
+
+function loadProject(pid){
+  B = lsGet(boardKey(pid), null) || freshBoard();
+  B.id = pid;                                      // the key is the truth
+  if (!B.cards) B.cards = {};
+  if (!B.passes) B.passes = {};
+  if (!B.dec) B.dec = {};
+  if (!B.scenes) B.scenes = {};
+  if (!B.title) B.title = { val:"", ts:0 };
+  if (!B.phase) B.phase = { val:1, ts:0 };
+  MYV = lsGet(myvKey(pid), {}) || {};
+}
+function saveBoard(){ lsSet(boardKey(B.id), B); render(); }
+function saveMyv(){ lsSet(myvKey(B.id), MYV); }
+
+function projectMeta(pid){
+  var b = lsGet(boardKey(pid), null);
+  if (!b) return null;
+  var cards = b.cards || {}, n = 0;
+  Object.keys(cards).forEach(function(k){ if (!cards[k].deleted) n++; });
+  return { id:pid, name:((b.title && b.title.val) || ""), cards:n };
+}
+function projectName(){ return (B.title && B.title.val) || "untitled feature"; }
+
+function switchProject(pid){
+  if (IDX.order.indexOf(pid) < 0) return;
+  IDX.active = pid; lsSet(K_IDX, IDX);
+  loadProject(pid);
+  V.deckIdx = 0; V.scene = ""; V.sheet = null; V.pending = null;
+  render();
+}
+function newProject(name){
+  var b = freshBoard();
+  b.title = { val: name || "", ts: now() };
+  lsSet(boardKey(b.id), b);
+  IDX.order.push(b.id); IDX.active = b.id; lsSet(K_IDX, IDX);
+  loadProject(b.id);
+  V.deckIdx = 0; V.scene = ""; V.sheet = "proj"; V.pending = null;
+  render();
+  var r = $("renameBox"); if (r) { r.focus(); r.select(); }
+  return b.id;
+}
+function deleteProject(pid){
+  if (IDX.order.length < 2) { V.flash = { kind:"warn", msg:"That's your only project — make another one first." }; render(); return; }
+  IDX.order = IDX.order.filter(function(p){ return p !== pid; });
+  try { localStorage.removeItem(boardKey(pid)); localStorage.removeItem(myvKey(pid)); } catch(e){}
+  if (IDX.active === pid) IDX.active = IDX.order[0];
+  lsSet(K_IDX, IDX);
+  loadProject(IDX.active);
+  V.deckIdx = 0; V.scene = ""; V.sheet = "proj";
+  render();
+}
+function renameProject(v){
+  B.title = { val:v, ts:now() };
+  lsSet(boardKey(B.id), B);        // no re-render — it would blow away the caret
+  $("projName").textContent = v || "untitled feature";
+}
 
 window.addEventListener("storage", function(e){
-  if (e.key === K_BOARD) { B = lsGet(K_BOARD, B); render(); }
+  if (e.key === boardKey(B.id)) { loadProject(B.id); render(); }
 });
 
 /* ================= view state ================= */
@@ -686,10 +774,36 @@ function merge(inc){
   });
   if (inc.title && (inc.title.ts||0) > (B.title.ts||0)) B.title = inc.title;
   if (inc.phase && (inc.phase.ts||0) > (B.phase.ts||0)) B.phase = inc.phase;
-  if (!sameBoard && B.id > inc.id) B.id = inc.id;   // converge on one board id
   saveBoard();
   return { added:added, updated:updated, passes:passes, scenes:scenes,
            from:inc.from||"them", sameBoard:sameBoard };
+}
+
+// A board always merges into ITS OWN project, never into whatever happens to be
+// open: switch to it, or make it a new project if this phone has never seen it.
+function routeMerge(inc){
+  if (!inc || !inc.cards) throw new Error("Not a Cel Sheet board.");
+  var madeProject = false, switched = false;
+  if (inc.id && inc.id !== B.id) {
+    if (IDX.order.indexOf(inc.id) >= 0) {
+      IDX.active = inc.id; lsSet(K_IDX, IDX);
+      loadProject(inc.id);
+    } else {
+      var b = freshBoard();
+      b.id = inc.id;
+      b.title = inc.title || { val:"", ts:0 };
+      lsSet(boardKey(inc.id), b);
+      IDX.order.push(inc.id); IDX.active = inc.id; lsSet(K_IDX, IDX);
+      loadProject(inc.id);
+      madeProject = true;
+    }
+    V.deckIdx = 0; V.scene = "";
+    switched = true;
+  }
+  var r = merge(inc);
+  r.madeProject = madeProject;
+  r.switched = switched && !madeProject;
+  return r;
 }
 
 async function doShareLink(){
@@ -740,13 +854,13 @@ function codeFromText(s){
 async function mergeFromText(s){
   var code = codeFromText(s);
   if (!code) { V.flash = { kind:"warn", msg:"That doesn't look like a Cel Sheet link." }; render(); return; }
-  try { report(merge(await decode(code))); }
+  try { report(routeMerge(await decode(code))); }
   catch(e){ V.flash = { kind:"warn", msg:"Couldn't read that link — it may have been cut short in the message." }; render(); }
 }
 function mergeFromFile(f){
   var r = new FileReader();
   r.onload = function(){
-    try { report(merge(JSON.parse(r.result))); }
+    try { report(routeMerge(JSON.parse(r.result))); }
     catch(e){ V.flash = { kind:"warn", msg:"Couldn't read that file." }; render(); }
   };
   r.onerror = function(){ V.flash = { kind:"warn", msg:"Couldn't open that file." }; render(); };
@@ -759,9 +873,12 @@ function report(r){
   if (r.updated) bits.push(r.updated + " updated");
   if (r.passes) bits.push(r.passes + " sealed pass" + (r.passes>1?"es":""));
   V.sheet = null; V.pending = null;
+  var where = r.madeProject
+    ? " Opened as a new project, <b>" + esc(projectName()) + "</b>."
+    : (r.switched ? " Switched to <b>" + esc(projectName()) + "</b>." : "");
   V.flash = bits.length
-    ? { kind:"ok", msg:"Merged from <b>"+esc(r.from)+"</b>: " + bits.join(", ") + "." }
-    : { kind:"ok", msg:"Nothing new from <b>"+esc(r.from)+"</b> — you were already up to date." };
+    ? { kind:"ok", msg:"Merged from <b>"+esc(r.from)+"</b>: " + bits.join(", ") + "." + where }
+    : { kind:"ok", msg:"Nothing new from <b>"+esc(r.from)+"</b> — you were already up to date." + where };
   render();
 }
 
@@ -778,7 +895,10 @@ async function incoming(){
     var n = Object.keys(inc.cards||{}).length;
     V.sheet = "incoming";
     V.pending = inc;
-    V.flash = { kind:"ok", msg:"A board from <b>"+esc(inc.from||"them")+"</b> is ready — "+n+" cards." };
+    var pn = (inc.title && inc.title.val) || "untitled feature";
+    var known = inc.id === B.id || IDX.order.indexOf(inc.id) >= 0;
+    V.flash = { kind:"ok", msg:"<b>"+esc(pn)+"</b> from <b>"+esc(inc.from||"them")+"</b> is ready — "+n+" cards" +
+                (known ? "." : ", a project you don't have yet.") };
     render();
   } catch(e){
     V.flash = { kind:"warn", msg:"That link was cut short somewhere and can't be read." };
@@ -812,7 +932,7 @@ function render(){
     (ns ? " · " + ns + " scene" + (ns===1?"":"s") : "") +
     (Object.keys(names).length>1 ? " · " + Object.keys(names).length + " phones" : "");
 
-  if (document.activeElement !== $("filmTitle")) $("filmTitle").value = (B.title && B.title.val) || "";
+  $("projName").textContent = projectName();
   if (document.activeElement !== $("myName")) $("myName").value = ME;
 
   renderSync();
@@ -832,6 +952,27 @@ function renderSync(){
          '<p class="lede" style="margin:0 0 8px">Nothing is overwritten — cards you already have keep whichever version was edited last, and your own sealed pass is left alone.</p>' +
          '<div class="row"><button class="btn primary sm" data-x="mergeGo">Merge it</button>' +
          '<button class="btn sm" data-x="close">Not now</button></div></div>';
+  }
+  if (V.sheet === "proj") {
+    h += '<div class="sheet"><h3>Projects</h3>' +
+      IDX.order.map(function(pid){
+        var m = projectMeta(pid);
+        if (!m) return "";
+        var on = pid === B.id;
+        return '<div class="projrow'+(on?" on":"")+'" data-p="'+esc(pid)+'">' +
+          '<span class="tick">'+(on?"●":"")+'</span>' +
+          '<button class="btn ghost sm nm" data-x="open" style="text-align:left;border:0;padding:0">' +
+            esc(m.name || "untitled feature") + '</button>' +
+          '<span class="count">'+m.cards+'</span>' +
+          '<button class="btn ghost xs" data-x="del" aria-label="Delete project">×</button>' +
+        '</div>';
+      }).join("") +
+      '<input class="rename" id="renameBox" maxlength="70" placeholder="name this project" ' +
+        'value="'+esc((B.title&&B.title.val)||"")+'" aria-label="Project name">' +
+      '<div class="row" style="margin-top:8px">' +
+        '<button class="btn primary sm" data-x="newproj">＋ New project</button>' +
+        '<button class="btn sm ghost" data-x="close">Close</button></div>' +
+      '<p class="note">Share and Merge only ever move the project you have open. A board someone sends you that you don\'t have yet arrives as its own project.</p></div>';
   }
   if (V.sheet === "share") {
     h += '<div class="sheet"><h3>Share your board</h3>' +
@@ -862,8 +1003,13 @@ function renderSync(){
     else if (x==="shareFile") doShareFile();
     else if (x==="pickFile") $("mergeFile").click();
     else if (x==="pasteGo") mergeFromText($("pasteBox").value);
-    else if (x==="mergeGo") { try { report(merge(V.pending)); } catch(err){ V.flash={kind:"warn",msg:"Couldn't merge that."}; render(); } }
+    else if (x==="mergeGo") { try { report(routeMerge(V.pending)); } catch(err){ V.flash={kind:"warn",msg:"Couldn't merge that."}; render(); } }
+    else if (x==="newproj") newProject("");
+    else if (x==="open") switchProject(b.closest(".projrow").getAttribute("data-p"));
+    else if (x==="del") deleteProject(b.closest(".projrow").getAttribute("data-p"));
   };
+  var rb = $("renameBox");
+  if (rb) rb.oninput = function(){ renameProject(rb.value.trim()); };
   if (V.sheet === "link") { var lb=$("linkBox"); if (lb) { lb.focus(); lb.select(); } }
 }
 
@@ -1167,16 +1313,11 @@ mf.onchange = function(e){
 };
 document.body.appendChild(mf);
 
-var tt = null;
-$("filmTitle").addEventListener("input", function(){
-  clearTimeout(tt);
-  tt = setTimeout(function(){
-    var v = $("filmTitle").value.trim();
-    if (v === ((B.title&&B.title.val)||"")) return;
-    B.title = { val:v, ts:now() };
-    lsSet(K_BOARD, B);
-  }, 500);
-});
+$("projBtn").onclick = function(){
+  V.sheet = V.sheet === "proj" ? null : "proj";
+  V.flash = null;
+  render();
+};
 // The name commits on every keystroke, not on a debounce — a card dropped a
 // moment after typing it must not be filed under "unnamed".
 var nt = null, nameAtRest = ME;
