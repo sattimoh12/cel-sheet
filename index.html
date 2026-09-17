@@ -257,6 +257,42 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
 .okbox{border:1px solid var(--line);border-left:3px solid var(--good);border-radius:6px;padding:10px 12px;
   font-size:13px;color:var(--ink-2);background:var(--panel-2);margin-bottom:12px}
 .okbox b{color:var(--ink)}
+/* ---------- scenes ---------- */
+.scene{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin-bottom:12px;overflow:hidden}
+.scene.unfiled{border-style:dashed;background:transparent}
+.scenehead{display:flex;align-items:center;gap:7px;padding:8px 9px;background:var(--panel-2);
+  border-bottom:1px solid var(--line-soft)}
+.scene.unfiled .scenehead{background:transparent}
+.scenenum{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--accent);flex:0 0 auto;letter-spacing:.06em}
+.scenetitle{
+  flex:1 1 auto;min-width:0;border:0;background:transparent;color:var(--ink);
+  font-family:inherit;font-size:14px;font-weight:600;padding:2px 0;letter-spacing:-.01em;
+}
+.scenetitle::placeholder{color:var(--ink-3);font-weight:400}
+.scenelabel{flex:1 1 auto;min-width:0;font-size:12px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-3)}
+.scenehead .btn{flex:0 0 auto}
+.scenebody{padding:9px}
+.scenebody .reel{margin-bottom:0}
+.sceneadd{display:flex;gap:6px;padding:0 9px 9px;flex-wrap:wrap}
+.scenesel{
+  margin-top:8px;width:100%;border:1px solid var(--line);border-radius:6px;background:var(--panel);
+  color:var(--ink-2);font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:5px 7px;
+}
+.emptyscene{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);padding:2px 2px 6px}
+
+/* composer scene rail */
+.scenerail{display:flex;gap:5px;overflow-x:auto;padding-bottom:7px;margin-bottom:2px;scrollbar-width:none}
+.scenerail::-webkit-scrollbar{display:none}
+.srchip{
+  flex:0 0 auto;border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:5px 9px;border-radius:99px;cursor:pointer;max-width:170px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.srchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+.srchip.new{border-style:dashed;color:var(--ink-3)}
+.srchip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -308,6 +344,7 @@ pre.canon{background:var(--panel-2);border:1px solid var(--line-soft);border-rad
 
 <div class="composer" id="composer">
   <div class="inner">
+    <div class="scenerail" id="scenerail" aria-label="Which scene this drop belongs to"></div>
     <textarea id="drop" rows="1" placeholder="a line of dialogue, a location, a look, a beat…"></textarea>
     <div class="crow">
       <button class="btn primary" id="send">Drop in</button>
@@ -385,7 +422,8 @@ function rid(n){
   return s;
 }
 function freshBoard(){
-  return { v:1, id:rid(10), title:{val:"",ts:0}, phase:{val:1,ts:0}, cards:{}, passes:{}, dec:{} };
+  return { v:1, id:rid(10), title:{val:"",ts:0}, phase:{val:1,ts:0},
+           scenes:{}, cards:{}, passes:{}, dec:{} };
 }
 
 var B  = lsGet(K_BOARD, null) || freshBoard();
@@ -394,6 +432,7 @@ var MYV= lsGet(K_MYV, {}) || {};
 if (!B.cards) B.cards = {};
 if (!B.passes) B.passes = {};
 if (!B.dec) B.dec = {};
+if (!B.scenes) B.scenes = {};
 
 function saveBoard(){ lsSet(K_BOARD, B); render(); }
 function saveMyv(){ lsSet(K_MYV, MYV); }
@@ -403,7 +442,7 @@ window.addEventListener("storage", function(e){
 });
 
 /* ================= view state ================= */
-var V = { deckIdx:0, sheet:null, pending:null, flash:null };
+var V = { deckIdx:0, sheet:null, pending:null, flash:null, scene:"", focusScene:null };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){
@@ -418,6 +457,56 @@ function liveCards(){
     .filter(function(c){ return !c.deleted; })
     .sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
 }
+function liveScenes(){
+  return Object.keys(B.scenes)
+    .map(function(k){ var s = B.scenes[k]; return { id:k, title:s.title||"", order:s.order||0, deleted:!!s.deleted }; })
+    .filter(function(s){ return !s.deleted; })
+    .sort(function(a,b){ return (a.order-b.order) || (a.id < b.id ? -1 : 1); });
+}
+function sceneExists(sid){ return !!(sid && B.scenes[sid] && !B.scenes[sid].deleted); }
+function sceneOf(c){ return sceneExists(c.scene) ? c.scene : ""; }
+function sceneName(sid){
+  if (!sceneExists(sid)) return "";
+  return B.scenes[sid].title || "Untitled scene";
+}
+function sceneOrder(sid){ return sceneExists(sid) ? (B.scenes[sid].order||0) : 1e9; }
+
+function addScene(){
+  var id = rid(8), max = 0;
+  liveScenes().forEach(function(s){ if (s.order > max) max = s.order; });
+  B.scenes[id] = { title:"", order:max+1, edited:now() };
+  V.scene = id;
+  V.focusScene = id;
+  saveBoard();
+  return id;
+}
+function renameScene(sid, title){
+  var s = B.scenes[sid]; if (!s || s.deleted) return;
+  s.title = title; s.edited = now();
+  lsSet(K_BOARD, B);              // no re-render — it would blow away the caret
+}
+function deleteScene(sid){
+  var s = B.scenes[sid]; if (!s) return;
+  B.scenes[sid] = { deleted:true, edited:now(), order:s.order||0 };
+  if (V.scene === sid) V.scene = "";
+  saveBoard();                    // cards keep pointing at it and fall back to Unfiled
+}
+function moveScene(sid, dir){
+  var list = liveScenes(), i = -1;
+  list.forEach(function(s, n){ if (s.id === sid) i = n; });
+  var j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  var a = B.scenes[list[i].id], b = B.scenes[list[j].id];
+  var t = a.order; a.order = b.order; b.order = t;
+  a.edited = now(); b.edited = now();
+  saveBoard();
+}
+function setScene(cardId, sid){
+  var c = B.cards[cardId]; if (!c) return;
+  c.scene = sid; c.edited = now();
+  saveBoard();
+}
+
 function myPass(){ return ME && B.passes[ME] ? B.passes[ME] : null; }
 function otherPasses(){
   return Object.keys(B.passes).filter(function(k){ return k !== ME; });
@@ -427,6 +516,7 @@ function otherPasses(){
 function addCard(body){
   var id = rid(10);
   body.author = ME || "unnamed";
+  body.scene = sceneExists(V.scene) ? V.scene : "";
   body.createdAt = now();
   body.edited = now();
   B.cards[id] = body;
@@ -525,7 +615,7 @@ function exportObj(withImages){
     cards[k] = o;
   });
   return { obj:{ v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
-                 cards:cards, passes:B.passes, dec:B.dec }, stripped:stripped };
+                 scenes:B.scenes, cards:cards, passes:B.passes, dec:B.dec }, stripped:stripped };
 }
 function b64url(bytes){
   var s=""; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]);
@@ -567,7 +657,12 @@ function boardUrl(code){
 
 function merge(inc){
   if (!inc || !inc.cards) throw new Error("Not a Cel Sheet board.");
-  var added=0, updated=0, passes=0, sameBoard = (inc.id === B.id);
+  var added=0, updated=0, passes=0, scenes=0, sameBoard = (inc.id === B.id);
+  Object.keys(inc.scenes||{}).forEach(function(k){
+    var o = inc.scenes[k], mine = B.scenes[k];
+    if (!mine) { B.scenes[k] = o; if (!o.deleted) scenes++; }
+    else if ((o.edited||0) > (mine.edited||0)) { B.scenes[k] = o; }
+  });
   Object.keys(inc.cards).forEach(function(k){
     var o = inc.cards[k], mine = B.cards[k];
     if (!mine) {
@@ -593,7 +688,8 @@ function merge(inc){
   if (inc.phase && (inc.phase.ts||0) > (B.phase.ts||0)) B.phase = inc.phase;
   if (!sameBoard && B.id > inc.id) B.id = inc.id;   // converge on one board id
   saveBoard();
-  return { added:added, updated:updated, passes:passes, from:inc.from||"them", sameBoard:sameBoard };
+  return { added:added, updated:updated, passes:passes, scenes:scenes,
+           from:inc.from||"them", sameBoard:sameBoard };
 }
 
 async function doShareLink(){
@@ -658,6 +754,7 @@ function mergeFromFile(f){
 }
 function report(r){
   var bits = [];
+  if (r.scenes) bits.push(r.scenes + " new scene" + (r.scenes>1?"s":""));
   if (r.added) bits.push(r.added + " new card" + (r.added>1?"s":""));
   if (r.updated) bits.push(r.updated + " updated");
   if (r.passes) bits.push(r.passes + " sealed pass" + (r.passes>1?"es":""));
@@ -710,14 +807,16 @@ function render(){
 
   var live = liveCards();
   var names = {}; live.forEach(function(c){ if (c.author) names[c.author]=1; });
+  var ns = liveScenes().length;
   $("tally").textContent = live.length + " card" + (live.length===1?"":"s") +
+    (ns ? " · " + ns + " scene" + (ns===1?"":"s") : "") +
     (Object.keys(names).length>1 ? " · " + Object.keys(names).length + " phones" : "");
 
   if (document.activeElement !== $("filmTitle")) $("filmTitle").value = (B.title && B.title.val) || "";
   if (document.activeElement !== $("myName")) $("myName").value = ME;
 
   renderSync();
-  if (ph===1) renderReel(live);
+  if (ph===1) { renderRail(); renderReel(live); }
   else if (ph===2) renderDeck(live);
   else renderLock(live);
 }
@@ -772,31 +871,139 @@ function media(c){
   return c.img ? '<img src="'+esc(c.img)+'" alt="dropped image" loading="lazy">' : "";
 }
 
+function cardHTML(c, scenes){
+  var cat = c.category || "none";
+  return '<article class="card" data-id="'+esc(c.id)+'">' +
+    '<div class="chip" style="background:'+catColor(cat)+'"></div><div class="body">' +
+      '<div class="meta">' +
+        '<span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
+        (c.guess ? '<span class="guess">guess</span>' : '') +
+        '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
+        '<button class="btn ghost xs" data-act="del" aria-label="Remove card">×</button>' +
+      '</div>' + media(c) +
+      (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
+      '<div class="picker">' + CATS.map(function(k){
+        return '<button class="pick" data-act="cat" data-cat="'+k.id+'" aria-pressed="'+(cat===k.id)+'" '+
+               'style="'+(cat===k.id?"color:"+catColor(k.id):"")+'">'+esc(k.label)+'</button>';
+      }).join("") + '</div>' +
+      (scenes.length
+        ? '<select class="scenesel" data-act="scene" aria-label="Which scene this card belongs to">' +
+            '<option value=""'+(sceneOf(c)?"":" selected")+'>— unfiled —</option>' +
+            scenes.map(function(s, i){
+              return '<option value="'+esc(s.id)+'"'+(sceneOf(c)===s.id?" selected":"")+'>' +
+                     pad(i+1)+'  '+esc(s.title||"Untitled scene")+'</option>';
+            }).join("") +
+          '</select>'
+        : "") +
+    '</div></article>';
+}
+function pad(n){ return (n<10?"0":"")+n; }
+
 function renderReel(live){
   var host = $("reel");
   $("empty").className = live.length ? "hide" : "";
-  host.innerHTML = live.map(function(c){
-    var cat = c.category || "none";
-    return '<article class="card" data-id="'+esc(c.id)+'">' +
-      '<div class="chip" style="background:'+catColor(cat)+'"></div><div class="body">' +
-        '<div class="meta">' +
-          '<span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
-          (c.guess ? '<span class="guess">guess</span>' : '') +
-          '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
-          '<button class="btn ghost xs" data-act="del" aria-label="Remove card">×</button>' +
-        '</div>' + media(c) +
-        (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
-        '<div class="picker">' + CATS.map(function(k){
-          return '<button class="pick" data-act="cat" data-cat="'+k.id+'" aria-pressed="'+(cat===k.id)+'" '+
-                 'style="'+(cat===k.id?"color:"+catColor(k.id):"")+'">'+esc(k.label)+'</button>';
-        }).join("") + '</div>' +
-      '</div></article>';
+
+  var scenes = liveScenes();
+  var byScene = {}, unfiled = [];
+  live.forEach(function(c){
+    var sid = sceneOf(c);
+    if (sid) (byScene[sid] = byScene[sid] || []).push(c);
+    else unfiled.push(c);
+  });
+
+  var html = scenes.map(function(s, i){
+    var cards = byScene[s.id] || [];
+    return '<section class="scene" data-sid="'+esc(s.id)+'">' +
+      '<div class="scenehead">' +
+        '<span class="scenenum">'+pad(i+1)+'</span>' +
+        '<input class="scenetitle" value="'+esc(s.title)+'" placeholder="scene title" maxlength="80" '+
+          'aria-label="Scene '+(i+1)+' title">' +
+        '<span class="count">'+cards.length+'</span>' +
+        '<button class="btn ghost xs" data-s="up"'+(i===0?" disabled":"")+' aria-label="Move scene up">↑</button>' +
+        '<button class="btn ghost xs" data-s="down"'+(i===scenes.length-1?" disabled":"")+' aria-label="Move scene down">↓</button>' +
+        '<button class="btn ghost xs" data-s="del" aria-label="Delete scene">×</button>' +
+      '</div>' +
+      '<div class="scenebody">' +
+        (cards.length
+          ? '<div class="reel">'+cards.map(function(c){ return cardHTML(c, scenes); }).join("")+'</div>'
+          : '<p class="emptyscene">nothing here yet</p>') +
+      '</div>' +
+      '<div class="sceneadd">' +
+        '<button class="btn sm" data-s="here">＋ Write into this scene</button>' +
+        '<button class="btn sm" data-s="photo">Photo here</button>' +
+      '</div>' +
+    '</section>';
   }).join("");
+
+  if (unfiled.length || !scenes.length) {
+    html += '<section class="scene unfiled" data-sid="">' +
+      '<div class="scenehead"><span class="scenelabel">Unfiled</span>' +
+        '<span class="count">'+unfiled.length+'</span>' +
+        '<button class="btn ghost xs" data-s="here" aria-label="Write unfiled">＋</button></div>' +
+      '<div class="scenebody">' +
+        (unfiled.length
+          ? '<div class="reel">'+unfiled.map(function(c){ return cardHTML(c, scenes); }).join("")+'</div>'
+          : '<p class="emptyscene">everything is filed under a scene</p>') +
+      '</div></section>';
+  }
+
+  html += '<button class="btn sm" id="newScene" style="margin-top:2px">＋ New scene</button>';
+  host.innerHTML = html;
+
   host.onclick = function(e){
+    if (e.target.id === "newScene") { addScene(); return; }
+    var sb = e.target.closest("button[data-s]");
+    if (sb) {
+      var sid = sb.closest(".scene").getAttribute("data-sid");
+      var act = sb.getAttribute("data-s");
+      if (act === "up") moveScene(sid, -1);
+      else if (act === "down") moveScene(sid, 1);
+      else if (act === "del") deleteScene(sid);
+      else if (act === "here") { V.scene = sid; render(); $("drop").focus(); }
+      else if (act === "photo") { V.scene = sid; renderRail(); $("file").click(); }
+      return;
+    }
     var b = e.target.closest("button[data-act]"); if (!b) return;
     var id = b.closest(".card").getAttribute("data-id");
     if (b.getAttribute("data-act")==="cat") setCategory(id, b.getAttribute("data-cat"));
     else deleteCard(id);
+  };
+  host.onchange = function(e){
+    var sel = e.target.closest("select[data-act='scene']");
+    if (!sel) return;
+    setScene(sel.closest(".card").getAttribute("data-id"), sel.value);
+  };
+  host.oninput = function(e){
+    var t = e.target.closest("input.scenetitle");
+    if (!t) return;
+    renameScene(t.closest(".scene").getAttribute("data-sid"), t.value);
+    renderRail();
+  };
+
+  if (V.focusScene) {
+    var el = host.querySelector('.scene[data-sid="'+V.focusScene+'"] .scenetitle');
+    V.focusScene = null;
+    if (el) el.focus();
+  }
+}
+
+function renderRail(){
+  var rail = $("scenerail"), scenes = liveScenes();
+  if (!sceneExists(V.scene)) V.scene = "";
+  rail.innerHTML =
+    '<button class="srchip" data-sr="" aria-pressed="'+(V.scene==="")+'">Unfiled</button>' +
+    scenes.map(function(s, i){
+      return '<button class="srchip" data-sr="'+esc(s.id)+'" aria-pressed="'+(V.scene===s.id)+'">' +
+             pad(i+1)+' '+esc(s.title || "untitled")+'</button>';
+    }).join("") +
+    '<button class="srchip new" data-sr="+">＋ Scene</button>';
+  var on = rail.querySelector('.srchip[aria-pressed="true"]');
+  if (on && on.scrollIntoView) on.scrollIntoView({block:"nearest", inline:"nearest"});
+  rail.onclick = function(e){
+    var b = e.target.closest("button[data-sr]"); if (!b) return;
+    var v = b.getAttribute("data-sr");
+    if (v === "+") { addScene(); $("drop").focus(); return; }
+    V.scene = v; renderRail();
   };
 }
 
@@ -811,13 +1018,18 @@ function renderDeck(live){
     host.querySelector("button[data-u]").onclick = unseal;
     return;
   }
-  var order = live.slice().reverse();
+  // walk the reel the way the film runs: scene by scene, oldest drop first
+  var order = live.slice().sort(function(a,b){
+    return (sceneOrder(sceneOf(a)) - sceneOrder(sceneOf(b))) || ((a.createdAt||0) - (b.createdAt||0));
+  });
   var marked = order.filter(function(c){ return MYV[c.id]; }).length;
   V.deckIdx = Math.max(0, Math.min(V.deckIdx, order.length-1));
   var c = order[V.deckIdx], cat = c.category||"none", mine = MYV[c.id]||"";
+  var sn = sceneName(sceneOf(c));
 
   host.innerHTML =
     '<div class="deck">' +
+      (sn ? '<div class="scenelabel" style="margin-bottom:6px">'+esc(sn)+'</div>' : "") +
       '<div class="meta"><span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
         '<span class="by">'+esc(c.author||"—")+'</span><span class="spacer"></span>' +
         '<span class="count">'+(V.deckIdx+1)+' / '+order.length+'</span></div>' +
@@ -872,10 +1084,11 @@ function renderLock(live){
     return '<span class="mini '+cls+'">'+esc(who)+' '+esc(v||"—")+'</span>';
   }
   function row(r, showDecide){
-    var c = r.c, cat = c.category||"none";
+    var c = r.c, cat = c.category||"none", sn = sceneName(sceneOf(c));
     return '<article class="card'+(r.d==="cut"?" is-cut":"")+'" data-id="'+esc(c.id)+'">' +
       '<div class="chip" style="background:'+catColor(cat)+'"></div><div class="body">' +
       '<div class="meta"><span class="cat" style="color:'+catColor(cat)+'">'+esc(catLabel(cat))+'</span>' +
+        (sn ? '<span class="by">'+esc(sn)+'</span>' : '') +
         '<span class="pair">'+badge(ME||"you", r.a.mine)+badge(theirName, r.a.theirs)+'</span></div>' +
       media(c) +
       (c.text ? '<p class="txt'+(cat==="dialogue"?" quote":"")+'">'+esc(c.text)+'</p>' : "") +
@@ -893,12 +1106,20 @@ function renderLock(live){
                    : '<p class="note">empty</p>') + '</div>';
   }
 
-  var canonText = g.in.length ? CATS.map(function(k){
-    var items = g.in.filter(function(r){ return (r.c.category||"none")===k.id; });
-    if (!items.length) return "";
-    return k.label.toUpperCase()+"\n"+items.map(function(r){
-      return "  · " + (r.c.text || "[image]");
-    }).join("\n");
+  // the canon reads like a treatment: scene by scene, category within each
+  var buckets = liveScenes().map(function(s, i){ return { key:s.id, head:pad(i+1)+"  "+(s.title||"UNTITLED SCENE").toUpperCase() }; });
+  buckets.push({ key:"", head:"UNFILED" });
+  var canonText = g.in.length ? buckets.map(function(bk){
+    var inScene = g.in.filter(function(r){ return sceneOf(r.c) === bk.key; });
+    if (!inScene.length) return "";
+    var body = CATS.map(function(k){
+      var items = inScene.filter(function(r){ return (r.c.category||"none")===k.id; });
+      if (!items.length) return "";
+      return "  " + k.label.toUpperCase() + "\n" + items.map(function(r){
+        return "    · " + (r.c.text || "[image]");
+      }).join("\n");
+    }).filter(Boolean).join("\n");
+    return bk.head + "\n" + body;
   }).filter(Boolean).join("\n\n") : "";
 
   host.innerHTML = pre +
