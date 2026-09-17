@@ -597,7 +597,8 @@ function projectMeta(pid){
   if (!b) return null;
   var cards = b.cards || {}, n = 0;
   Object.keys(cards).forEach(function(k){ if (!cards[k].deleted) n++; });
-  return { id:pid, name:((b.title && b.title.val) || ""), cards:n };
+  return { id:pid, name:((b.title && b.title.val) || ""), cards:n,
+           linked: !!(b.room && b.skey) };
 }
 function projectName(){ return (B.title && B.title.val) || "untitled feature"; }
 
@@ -829,7 +830,7 @@ function decide(id, val){
 }
 
 /* ================= share / merge ================= */
-function exportObj(withImages){
+function exportObj(withImages, forCloud){
   var cards = {}, stripped = 0;
   Object.keys(B.cards).forEach(function(k){
     var c = B.cards[k], o = {};
@@ -837,10 +838,14 @@ function exportObj(withImages){
     if (!withImages && o.img) { delete o.img; o.imgGone = 1; stripped++; }
     cards[k] = o;
   });
-  return { obj:{ v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
-                 room:B.room||"", scenes:B.scenes, tabs:B.tabs,
-                 cards:cards, passes:B.passes,
-                 dec:B.dec }, stripped:stripped };
+  var obj = { v:1, id:B.id, from:ME||"unnamed", title:B.title, phase:B.phase,
+              scenes:B.scenes, tabs:B.tabs, cards:cards, passes:B.passes,
+              dec:B.dec };
+  if (!forCloud) {                       // the joining details never go to the database
+    obj.room = B.room || "";
+    obj.skey = B.skey || "";
+  }
+  return { obj:obj, stripped:stripped };
 }
 function b64url(bytes){
   var s=""; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]);
@@ -917,7 +922,7 @@ function merge(inc){
   if (inc.title && (inc.title.ts||0) > (B.title.ts||0)) B.title = inc.title;
   if (inc.phase && (inc.phase.ts||0) > (B.phase.ts||0)) B.phase = inc.phase;
   var joined = false;
-  if (inc.room && !B.room) { B.room = inc.room; joined = true; }
+  if (inc.room && inc.skey && !B.room) { B.room = inc.room; B.skey = inc.skey; joined = true; }
   saveBoard();
   if (joined) cloudStart();
   return { added:added, updated:updated, passes:passes, scenes:scenes, tabs:tabs,
@@ -1028,9 +1033,48 @@ function report(r){
   render();
 }
 
+/* ================= end-to-end encryption =================
+   The board is encrypted on this phone before it is pushed. The key lives in
+   the URL FRAGMENT of the share link and in localStorage — a fragment is never
+   sent to a server, so the key reaches the other phone without ever reaching
+   Google, GitHub, or whoever carried the message. The database only ever holds
+   ciphertext. Losing the key means losing the cloud copy; the phones still
+   have the board. */
+var keyCache = {};
+function deriveKey(secret){
+  if (keyCache[secret]) return keyCache[secret];
+  keyCache[secret] = crypto.subtle
+    .digest("SHA-256", new TextEncoder().encode("cel-sheet/v1/" + secret))
+    .then(function(h){
+      return crypto.subtle.importKey("raw", h, { name:"AES-GCM" }, false, ["encrypt","decrypt"]);
+    });
+  return keyCache[secret];
+}
+function b64(bytes){
+  var s=""; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function unb64(str){
+  var bin = atob(str), out = new Uint8Array(bin.length);
+  for (var i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function sealStr(plain, secret){
+  var key = await deriveKey(secret);
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var ct = await crypto.subtle.encrypt({ name:"AES-GCM", iv:iv }, key,
+                                       new TextEncoder().encode(plain));
+  return { v:1, iv:b64(iv), e:b64(new Uint8Array(ct)) };
+}
+async function openStr(doc, secret){
+  var key = await deriveKey(secret);
+  var pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv:unb64(doc.iv) }, key, unb64(doc.e));
+  return new TextDecoder().decode(pt);
+}
+
 /* ================= live sync =================
-   The room doc holds exactly the same payload Share sends, gzipped: one
-   `merge()` serves both paths. Photos ride in a subcollection because a
+   The room doc holds the same payload Share sends — gzipped, then encrypted —
+   so one `merge()` serves both paths. Photos ride in a subcollection because a
    Firestore document caps at 1 MiB. */
 var Cloud = { db:null, room:null, unsub:null, unsubPhotos:null,
               pushT:null, lastZ:null, status:"off", remotePhotos:{}, err:"" };
@@ -1084,7 +1128,7 @@ function cloudStop(){
 }
 
 function cloudStart(){
-  if (!B.room || !cloudConfigured()) { cloudStop(); return; }
+  if (!B.room || !B.skey || !cloudConfigured()) { cloudStop(); return; }
   if (Cloud.room === B.room && Cloud.db) return;
   cloudStop();
   Cloud.room = B.room;
@@ -1094,13 +1138,18 @@ function cloudStart(){
     if (Cloud.room !== B.room) return;               // switched away while loading
     Cloud.unsub = roomRef().onSnapshot(function(snap){
       var d = snap.data();
-      if (!d || !d.z) { cloudPush(true); return; }
-      if (d.z === Cloud.lastZ) { setCloudStatus("live"); return; }
-      decode(d.z).then(function(inc){
-        try { merge(inc); } catch(e){}               // saveBoard + render happen inside
-        setCloudStatus("live");
-        cloudPush();                                 // push back only if we're richer
-      }, function(){ setCloudStatus("error", "unreadable board"); });
+      if (!d || !d.e) { cloudPush(true); return; }   // empty room, or a pre-encryption doc
+      openStr(d, B.skey).then(function(z){
+        if (z === Cloud.lastZ) { setCloudStatus("live"); return; }
+        Cloud.lastZ = z;
+        return decode(z).then(function(inc){
+          try { merge(inc); } catch(e){}             // saveBoard + render happen inside
+          setCloudStatus("live");
+          cloudPush();                               // push back only if we're richer
+        });
+      }, function(){
+        setCloudStatus("error", "wrong key for this room");
+      });
     }, function(e){ setCloudStatus("error", (e && e.code) || "offline"); });
 
     Cloud.unsubPhotos = roomRef().collection("photos").onSnapshot(function(s){
@@ -1110,8 +1159,12 @@ function cloudStart(){
         if (ch.type === "removed") { delete Cloud.remotePhotos[id]; return; }
         Cloud.remotePhotos[id] = 1;
         var d = ch.doc.data();
-        if (d && d.img && B.cards[id] && !B.cards[id].img && !B.cards[id].deleted) {
-          B.cards[id].img = d.img; changed = true;
+        if (d && d.e && B.cards[id] && !B.cards[id].img && !B.cards[id].deleted) {
+          openStr(d, B.skey).then(function(img){
+            if (B.cards[id] && !B.cards[id].img) {
+              B.cards[id].img = img; lsSet(boardKey(B.id), B); render();
+            }
+          }, function(){});
         }
       });
       if (changed) { lsSet(boardKey(B.id), B); render(); }
@@ -1131,12 +1184,16 @@ function cloudSchedule(){
 }
 
 function cloudPush(force){
-  if (!Cloud.db || !Cloud.room) return;
-  var ex = exportObj(false);                          // photos travel separately
+  if (!Cloud.db || !Cloud.room || !B.skey) return;
+  var ex = exportObj(false, true);                    // photos travel separately
+  var secret = B.skey;
   encode(ex.obj).then(function(z){
     if (!force && z === Cloud.lastZ) return;
-    Cloud.lastZ = z;
-    roomRef().set({ z:z, by: ME || "unnamed", at: Date.now() }).then(function(){
+    Cloud.lastZ = z;                                  // the guard compares PLAINTEXT
+    return sealStr(z, secret).then(function(sealed){
+      sealed.at = Date.now();                         // nothing else in the clear
+      return roomRef().set(sealed);
+    }).then(function(){
       setCloudStatus("live");
     }, function(e){ setCloudStatus("error", (e && e.code) || "write refused"); });
   }, function(){});
@@ -1148,7 +1205,8 @@ function cloudPushPhotos(){
     var c = B.cards[id];
     if (!c || c.deleted || !c.img || Cloud.remotePhotos[id]) return;
     Cloud.remotePhotos[id] = 1;                       // claim it before the await
-    roomRef().collection("photos").doc(id).set({ img: c.img })
+    sealStr(c.img, B.skey)
+      .then(function(sealed){ return roomRef().collection("photos").doc(id).set(sealed); })
       .catch(function(){ delete Cloud.remotePhotos[id]; });
   });
 }
@@ -1159,11 +1217,12 @@ function syncOn(){
     render(); return;
   }
   B.room = B.room || rid(20);
+  B.skey = B.skey || rid(32);
   saveBoard();
   cloudStart();
 }
 function syncOff(){
-  delete B.room;
+  delete B.room; delete B.skey;
   cloudStop();
   saveBoard();
 }
@@ -1318,6 +1377,8 @@ function renderSync(){
           '<span class="tick">'+(on?"●":"")+'</span>' +
           '<button class="btn ghost sm nm" data-x="open" style="text-align:left;border:0;padding:0">' +
             esc(m.name || "untitled feature") + '</button>' +
+          '<span class="count sync '+(m.linked?"live":"off")+'">' +
+            (m.linked ? "synced" : "this phone only") + '</span>' +
           '<span class="count">'+m.cards+'</span>' +
           '<button class="btn ghost xs" data-x="del" aria-label="Delete project">×</button>' +
         '</div>';
@@ -1340,7 +1401,9 @@ function renderSync(){
       '<div class="row" style="margin-top:8px">' +
         '<button class="btn primary sm" data-x="newproj">＋ New project</button>' +
         '<button class="btn sm ghost" data-x="close">Close</button></div>' +
-      '<p class="note">Share and Merge only ever move the project you have open. A board someone sends you that you don\'t have yet arrives as its own project.</p></div>';
+      '<p class="note">Each project is shared on its own. A project stays <b>this phone only</b> until ' +
+      'somebody Shares it once — that first link is what pairs it. New projects never appear on the ' +
+      'other phone by themselves.</p></div>';
   }
   if (V.sheet === "share") {
     h += '<div class="sheet"><h3>Share your board</h3>' +

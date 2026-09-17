@@ -40,16 +40,38 @@ classifier only knows the seven built-ins, so cards land in your own tabs by tap
 
 ## Live sync
 
-Turn it on from the project sheet and both phones keep this project in step on their own — no
+Turn it on from the project sheet and both phones keep that project in step on their own — no
 tapping Merge. It runs on the `cel-sheet` Firebase project (Spark / no-cost, Firestore in the
-`eur3` European multi-region), and the header shows `● live`, `… syncing` or `! sync failed`.
+`eur3` European multi-region). The header shows `● live`, `… syncing` or `! sync failed`.
 
-The room id is a 20-character random string stored with the board, so **sending one Share link is
-what joins the other phone** — after that it is automatic in both directions. The security rules
-allow reads and writes to `boards/{room}` only when the id is at least 16 characters, so the id is
-the secret: anyone who has it can read and write that board. The board itself is pushed as one
-gzipped string on a 1.2s debounce, and photos go in a `photos` subcollection because a Firestore
-document caps at 1 MiB. With sync off, nothing leaves the phone.
+**Each project is paired on its own.** A project reads *this phone only* in the project list until
+somebody Shares it once; that first link is what pairs it. A new project never appears on the other
+phone by itself.
+
+**The database only ever holds ciphertext.** The board is gzipped and then encrypted with AES-GCM
+on the phone before it is pushed. The key is a 32-character secret that lives in the **fragment**
+of the share link (`#m=…`) and in localStorage — a URL fragment is never sent to a server, so the
+key reaches the other phone without passing through Google, GitHub, or whatever app carried the
+message. A stored board document is exactly `{v, iv, e, at}`: no titles, no dialogue, no names.
+Photos are encrypted the same way in a `photos` subcollection, because a Firestore document caps
+at 1 MiB.
+
+The room id (20 characters, the document address) and the key travel together in that one link, so
+**treat a share link as the whole board** — anyone who gets it can read and write that project.
+Losing the key only loses the cloud copy; both phones still hold the board. With sync off, nothing
+leaves the phone.
+
+The security rules allow reads and writes on `boards/{room}` only when the room id is exactly 20
+characters and the document is the encrypted shape, under 900 KB. Plaintext writes, extra fields,
+short ids and oversized blobs are all refused.
+
+### About the Firebase API key in this file
+
+The `FB` config near the top of `index.html` is public by design — a Firebase web config is a
+project identifier, not a credential, and it has to reach the browser to work. GitHub's secret
+scanner flags the format because Google uses the same shape for Maps and Cloud keys that *are*
+sensitive. There is nothing to rotate. What actually protects a board is the room key, which is
+never in this repo.
 
 ## Share and Merge
 
